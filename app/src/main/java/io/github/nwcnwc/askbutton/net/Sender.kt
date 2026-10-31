@@ -79,8 +79,11 @@ object Sender {
             else -> try {
                 upload(settings, jpegFile.readBytes())
             } catch (error: Exception) {
-                val message = RequestText.redact(error.message ?: "Screenshot upload failed").take(180)
-                imageNote = message
+                imageNote = if (error is java.net.SocketTimeoutException) {
+                    "Image host timed out."
+                } else {
+                    RequestText.redact(error.message ?: "Screenshot upload failed").take(180)
+                }
                 Diagnostics.log(context, "image upload", error)
                 null
             }
@@ -97,7 +100,12 @@ object Sender {
             Http.postJson(webhook, json, headers)
         } catch (error: Exception) {
             Diagnostics.log(context, "webhook post", error)
-            return Report(false, 0, "Couldn't reach the webhook. ${error.message ?: ""}".trim().take(180))
+            val detail = if (error is java.net.SocketTimeoutException) {
+                "Webhook timed out."
+            } else {
+                "Couldn't reach the webhook. ${error.message ?: ""}".trim()
+            }
+            return Report(false, 0, detail.take(180))
         }
         Diagnostics.log(context, "webhook HTTP ${response.code} host=$host")
         if (response.code !in 200..299) {

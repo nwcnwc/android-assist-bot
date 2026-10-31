@@ -4,6 +4,7 @@ import io.github.nwcnwc.askbutton.logic.ImageLinks
 import io.github.nwcnwc.askbutton.logic.Payload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.net.ServerSocket
@@ -62,6 +63,35 @@ class HttpTest {
             assertTrue(text.contains("filename=\"screenshot.jpg\""))
             assertTrue(text.contains("image/jpeg"))
             assertTrue(raw.toList().windowed(4).any { it == jpeg.toList() })
+        } finally {
+            server.close()
+        }
+    }
+
+    @Test
+    fun postJsonStopsWhenTheServerNeverAnswers() {
+        val server = ServerSocket(0)
+        val accepted = Thread {
+            try {
+                server.accept().use {
+                    Thread.sleep(15_000)
+                }
+            } catch (_: Exception) {
+            }
+        }
+        accepted.isDaemon = true
+        accepted.start()
+        val started = System.nanoTime()
+        try {
+            Http.postJson(
+                "http://127.0.0.1:${server.localPort}/hook",
+                """{"question":"hi"}""",
+                timeoutMs = 800,
+            )
+            fail("expected a timeout")
+        } catch (error: Exception) {
+            val elapsedMs = (System.nanoTime() - started) / 1_000_000
+            assertTrue("hung for ${elapsedMs}ms: $error", elapsedMs < 4_000)
         } finally {
             server.close()
         }
