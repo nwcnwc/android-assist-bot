@@ -46,7 +46,7 @@ class AssistSession(context: Context) : VoiceInteractionSession(context) {
             val source = object : AskController.Source {
                 override val screenshot: Bitmap? get() = this@AssistSession.screenshot
                 override val screenText: String get() = ScreenText.join(parts)
-                override val urls: List<String> get() = urls.toList()
+                override val urls: List<String> get() = this@AssistSession.urls.toList()
                 override val pageUrl: String? get() = this@AssistSession.pageUrl
                 override fun ready(): Boolean = assistDone && shotDone
             }
