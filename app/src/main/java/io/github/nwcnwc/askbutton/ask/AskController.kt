@@ -18,7 +18,6 @@ import io.github.nwcnwc.askbutton.R
 import io.github.nwcnwc.askbutton.diag.Diagnostics
 import io.github.nwcnwc.askbutton.net.SendService
 import io.github.nwcnwc.askbutton.net.Sender
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class AskController(
@@ -115,44 +114,25 @@ class AskController(
         val shot = source.screenshot?.takeUnless { it.isRecycled }
         val clipboard = Sender.peekClipboard(context)
         SpeechHub.stop()
+        val app = context.applicationContext
+        val closed = AtomicBoolean(false)
+        fun closeSheet() {
+            if (closed.compareAndSet(false, true)) onClose()
+        }
+        // If encoding or service start stalls, leave the sheet anyway.
+        main.postDelayed({ closeSheet() }, 1500)
         Thread {
             val jpeg = try {
-                if (shot == null) null else Sender.writeJpeg(context, shot)
+                if (shot == null) null else Sender.writeJpeg(app, shot)
             } catch (error: Throwable) {
-                Diagnostics.log(context, "jpeg", error)
+                Diagnostics.log(app, "jpeg", error)
                 null
             }
-            val latch = SendService.Handoff.arm()
-            val launched = AtomicBoolean(false)
-            val app = context.applicationContext
-            main.post {
-                try {
-                    app.startForegroundService(
-                        SendService.intent(app, questionText, screenText, pageUrl, urls, clipboard, jpeg),
-                    )
-                    launched.set(true)
-                } catch (error: Throwable) {
-                    Diagnostics.log(app, "start send", error)
-                    jpeg?.delete()
-                    SendService.Handoff.signal()
-                    sending = false
-                    send.isEnabled = true
-                    status.text = error.message ?: context.getString(R.string.send_failed)
-                }
-            }
-            val foreground = latch.await(2, TimeUnit.SECONDS)
-            main.post {
-                if (!launched.get()) return@post
-                if (!foreground) {
-                    Diagnostics.log(app, "send service did not reach the foreground")
-                    jpeg?.delete()
-                    sending = false
-                    send.isEnabled = true
-                    status.setText(R.string.send_failed)
-                    return@post
-                }
-                onClose()
-            }
+            SendService.enqueue(
+                app,
+                SendService.intent(app, questionText, screenText, pageUrl, urls, clipboard, jpeg),
+            )
+            main.post { closeSheet() }
         }.start()
     }
 

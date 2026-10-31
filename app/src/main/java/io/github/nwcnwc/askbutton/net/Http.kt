@@ -3,28 +3,34 @@ package io.github.nwcnwc.askbutton.net
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 object Http {
+    const val TIMEOUT_MS = 20_000
+
     data class Response(val code: Int, val body: String)
 
     fun postJson(
         url: String,
         json: String,
         headers: Map<String, String> = emptyMap(),
-        timeoutMs: Int = 20_000,
+        timeoutMs: Int = TIMEOUT_MS,
     ): Response {
         val connection = open(url, timeoutMs)
-        connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-        connection.setRequestProperty("Accept", "application/json")
-        headers.forEach { (name, value) ->
-            if (value.isNotEmpty()) connection.setRequestProperty(name, value)
+        return call(connection, timeoutMs) {
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            connection.setRequestProperty("Accept", "application/json")
+            headers.forEach { (name, value) ->
+                if (value.isNotEmpty()) connection.setRequestProperty(name, value)
+            }
+            val bytes = json.toByteArray(Charsets.UTF_8)
+            connection.setFixedLengthStreamingMode(bytes.size)
+            connection.outputStream.use { it.write(bytes) }
+            read(connection)
         }
-        val bytes = json.toByteArray(Charsets.UTF_8)
-        connection.setFixedLengthStreamingMode(bytes.size)
-        connection.outputStream.use { it.write(bytes) }
-        return read(connection)
     }
 
     fun postMultipart(
@@ -34,10 +40,11 @@ object Http {
         fileName: String,
         fileBytes: ByteArray,
         fileType: String,
-        timeoutMs: Int = 30_000,
+        timeoutMs: Int = TIMEOUT_MS,
     ): Response {
         val boundary = "AskButton" + UUID.randomUUID().toString().replace("-", "")
         val connection = open(url, timeoutMs)
+        return call(connection, timeoutMs) {
         connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
         connection.outputStream.use { out ->
             fun write(text: String) = out.write(text.toByteArray(Charsets.UTF_8))
@@ -55,7 +62,47 @@ object Http {
             out.write(fileBytes)
             write("\r\n--$boundary--\r\n")
         }
-        return read(connection)
+        read(connection)
+        }
+    }
+
+    /**
+     * HttpURLConnection's read timeout does not cover a write that blocks.
+     * Disconnect the socket when the deadline passes so ImgBB cannot hang the send.
+     */
+    private fun call(connection: HttpURLConnection, timeoutMs: Int, block: () -> Response): Response {
+        val timedOut = AtomicBoolean(false)
+        val watchdog = Thread({
+            try {
+                Thread.sleep(timeoutMs.toLong())
+            } catch (_: InterruptedException) {
+                return@Thread
+            }
+            if (timedOut.compareAndSet(false, true)) {
+                try {
+                    connection.disconnect()
+                } catch (_: Exception) {
+                }
+            }
+        }, "askbutton-http-timeout")
+        watchdog.isDaemon = true
+        watchdog.start()
+        return try {
+            val response = block()
+            timedOut.set(true)
+            response
+        } catch (error: Exception) {
+            if (timedOut.get()) {
+                throw SocketTimeoutException("Timed out after ${timeoutMs}ms")
+            }
+            throw error
+        } finally {
+            watchdog.interrupt()
+            try {
+                connection.disconnect()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     private fun open(url: String, timeoutMs: Int): HttpURLConnection {
@@ -65,7 +112,7 @@ object Http {
         connection.instanceFollowRedirects = false
         connection.connectTimeout = timeoutMs
         connection.readTimeout = timeoutMs
-        connection.setRequestProperty("User-Agent", "AskButton/0.1.1")
+        connection.setRequestProperty("User-Agent", "AskButton/0.1.2")
         return connection
     }
 

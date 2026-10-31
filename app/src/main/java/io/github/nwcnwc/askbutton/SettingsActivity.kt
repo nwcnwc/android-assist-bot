@@ -212,7 +212,8 @@ class SettingsActivity : Activity() {
         if (!saveFromFields()) return
         val app = applicationContext
         try {
-            startForegroundService(
+            SendService.enqueue(
+                app,
                 SendService.intent(app, "Test from Ask Button", "", null, arrayListOf(), null, null),
             )
             toast(getString(R.string.sending))
