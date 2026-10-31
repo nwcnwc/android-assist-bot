@@ -12,14 +12,26 @@ class LogicTest {
     fun payloadUsesExactKeysAndNulls() {
         val json = Payload.json("  what is this? ", "https://example.com/a", "page", "", null, null)
         assertEquals(
-            "{\"question\":\"what is this?\",\"url\":\"https://example.com/a\",\"url_source\":\"page\",\"screen_text\":null,\"screenshot_base64\":null,\"screenshot_mime\":null,\"screenshot_omitted\":null}",
+            "{\"question\":\"what is this?\",\"url\":\"https://example.com/a\",\"url_source\":\"page\",\"screen_text\":null,\"screenshot_mime\":null,\"screenshot_omitted\":null,\"screenshot_b64_len\":0,\"body_bytes\":211,\"screenshot_base64\":null}",
             json,
         )
         val parsed = Json.parse(json) as Jv.Obj
         assertEquals(
-            listOf("question", "url", "url_source", "screen_text", "screenshot_base64", "screenshot_mime", "screenshot_omitted"),
+            listOf(
+                "question",
+                "url",
+                "url_source",
+                "screen_text",
+                "screenshot_mime",
+                "screenshot_omitted",
+                "screenshot_b64_len",
+                "body_bytes",
+                "screenshot_base64",
+            ),
             parsed.map.keys.toList(),
         )
+        assertEquals(0, (parsed.map["screenshot_b64_len"] as Jv.Num).value.toInt())
+        assertEquals(json.toByteArray(Charsets.UTF_8).size, (parsed.map["body_bytes"] as Jv.Num).value.toInt())
     }
 
     @Test
@@ -33,6 +45,41 @@ class LogicTest {
         assertEquals("abc+/=", (parsed.map["screenshot_base64"] as Jv.Str).value)
         assertEquals("image/jpeg", (parsed.map["screenshot_mime"] as Jv.Str).value)
         assertEquals(Jv.Null, parsed.map["screenshot_omitted"])
+        assertEquals(6, (parsed.map["screenshot_b64_len"] as Jv.Num).value.toInt())
+        assertEquals(json.toByteArray(Charsets.UTF_8).size, (parsed.map["body_bytes"] as Jv.Num).value.toInt())
+    }
+
+    @Test
+    fun payloadBodyBytesMatchUtf8IncludingMultibyteChars() {
+        val shot = "YQ=="
+        val json = Payload.json("café 问 👍", "https://example.com/ä", "page", "スクリーン", shot, "too_large")
+        val parsed = Json.parse(json) as Jv.Obj
+        assertEquals(shot, (parsed.map["screenshot_base64"] as Jv.Str).value)
+        assertEquals(shot.length, (parsed.map["screenshot_b64_len"] as Jv.Num).value.toInt())
+        assertEquals(Jv.Null, parsed.map["screenshot_omitted"])
+        val bytes = json.toByteArray(Charsets.UTF_8).size
+        assertEquals(bytes, (parsed.map["body_bytes"] as Jv.Num).value.toInt())
+        assertTrue("utf8=$bytes chars=${json.length}", bytes > json.length)
+
+        val wideShot = "A".repeat(800)
+        val wide = Payload.json("é".repeat(30), null, null, null, wideShot, null)
+        val wideParsed = Json.parse(wide) as Jv.Obj
+        assertEquals(wideShot.length, (wideParsed.map["screenshot_b64_len"] as Jv.Num).value.toInt())
+        assertEquals(wide.toByteArray(Charsets.UTF_8).size, (wideParsed.map["body_bytes"] as Jv.Num).value.toInt())
+        assertTrue(wide.toByteArray(Charsets.UTF_8).size > wide.length)
+    }
+
+    @Test
+    fun payloadNullShotUsesZeroB64Len() {
+        val missing = Payload.json(null, null, null, null, null, null)
+        val blank = Payload.json("q", null, null, null, "  \n", null)
+        for (json in listOf(missing, blank)) {
+            val parsed = Json.parse(json) as Jv.Obj
+            assertEquals(Jv.Null, parsed.map["screenshot_base64"])
+            assertEquals(Jv.Null, parsed.map["screenshot_mime"])
+            assertEquals(0, (parsed.map["screenshot_b64_len"] as Jv.Num).value.toInt())
+            assertEquals(json.toByteArray(Charsets.UTF_8).size, (parsed.map["body_bytes"] as Jv.Num).value.toInt())
+        }
     }
 
     @Test
@@ -42,6 +89,8 @@ class LogicTest {
         assertEquals(Jv.Null, parsed.map["screenshot_base64"])
         assertEquals(Jv.Null, parsed.map["screenshot_mime"])
         assertEquals("too_large", (parsed.map["screenshot_omitted"] as Jv.Str).value)
+        assertEquals(0, (parsed.map["screenshot_b64_len"] as Jv.Num).value.toInt())
+        assertEquals(json.toByteArray(Charsets.UTF_8).size, (parsed.map["body_bytes"] as Jv.Num).value.toInt())
     }
 
     @Test
@@ -51,6 +100,8 @@ class LogicTest {
         assertEquals("YQ==", (parsed.map["screenshot_base64"] as Jv.Str).value)
         assertEquals("image/jpeg", (parsed.map["screenshot_mime"] as Jv.Str).value)
         assertEquals(Jv.Null, parsed.map["screenshot_omitted"])
+        assertEquals(4, (parsed.map["screenshot_b64_len"] as Jv.Num).value.toInt())
+        assertEquals(json.toByteArray(Charsets.UTF_8).size, (parsed.map["body_bytes"] as Jv.Num).value.toInt())
     }
 
     @Test
@@ -171,7 +222,7 @@ class LogicTest {
 
     @Test
     fun screenshotLadderStopsWhenTheBase64Fits() {
-        assertEquals(700_000, Screenshot.MAX_SCREENSHOT_B64_CHARS)
+        assertTrue(Screenshot.MAX_SCREENSHOT_B64_CHARS > 0)
         assertEquals(0, Screenshot.MAX_SCREENSHOT_B64_CHARS % 4)
         assertEquals(
             listOf(1280 to 70, 1024 to 60, 800 to 55, 640 to 50),

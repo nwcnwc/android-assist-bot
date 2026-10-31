@@ -2,11 +2,13 @@ package io.github.nwcnwc.askbutton.logic
 
 import java.util.Base64
 
-/**
- * JPEG screenshot embedded in the webhook JSON.
- * [MAX_SCREENSHOT_B64_CHARS] is the only size cap.
- */
+/** JPEG screenshot embedded in the webhook JSON. */
 object Screenshot {
+    /**
+     * Only knob for how long a screenshot's base64 may be.
+     * Keep it a multiple of 4 so the cap can match a standard base64 length exactly.
+     * The send path and the tests read this constant. Do not copy the number anywhere else.
+     */
     const val MAX_SCREENSHOT_B64_CHARS = 700_000
     const val MIME = "image/jpeg"
     const val OMITTED_TOO_LARGE = "too_large"

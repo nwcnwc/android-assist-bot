@@ -11,8 +11,8 @@ android {
         applicationId = "io.github.nwcnwc.askbutton"
         minSdk = 29
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.1.5"
+        versionCode = 7
+        versionName = "0.1.6"
     }
 
     val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
