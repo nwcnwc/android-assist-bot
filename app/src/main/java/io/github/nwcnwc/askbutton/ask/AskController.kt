@@ -2,28 +2,24 @@ package io.github.nwcnwc.askbutton.ask
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.View
+import android.view.ViewTreeObserver
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import io.github.nwcnwc.askbutton.R
-import io.github.nwcnwc.askbutton.SettingsActivity
+import io.github.nwcnwc.askbutton.diag.Diagnostics
+import io.github.nwcnwc.askbutton.net.SendService
 import io.github.nwcnwc.askbutton.net.Sender
-import io.github.nwcnwc.askbutton.notify.Notices
-import java.util.Locale
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class AskController(
     private val context: Context,
@@ -42,87 +38,59 @@ class AskController(
     private val question = root.findViewById<EditText>(R.id.question)
     private val status = root.findViewById<TextView>(R.id.status)
     private val send = root.findViewById<Button>(R.id.send)
+    private val card = root.findViewById<View>(R.id.card)
     private val main = Handler(Looper.getMainLooper())
-    private var recognizer: SpeechRecognizer? = null
     private var filling = false
     private var userEdited = false
     private var sending = false
     private var queued = false
+    private var baseBottom = -1
     private val startedAt = SystemClock.elapsedRealtime()
+    private val layoutListener = ViewTreeObserver.OnGlobalLayoutListener { applyPad() }
 
     fun start() {
+        baseBottom = card.paddingBottom
+        root.setOnApplyWindowInsetsListener { _, insets ->
+            applyPad()
+            insets
+        }
+        root.viewTreeObserver.addOnGlobalLayoutListener(layoutListener)
+        root.requestApplyInsets()
+        applyPad()
         root.setOnClickListener { if (!sending) onClose() }
-        root.findViewById<View>(R.id.card).setOnClickListener { }
+        card.setOnClickListener { }
         root.findViewById<Button>(R.id.cancel).setOnClickListener { if (!sending) onClose() }
         send.setOnClickListener { submit() }
-        question.addTextChangedListener(object : TextWatcher {
+        question.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 if (!filling) userEdited = true
             }
-            override fun afterTextChanged(s: Editable?) = Unit
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             status.setText(R.string.mic_needed)
             return
         }
-        startListening()
+        val started = SpeechHub.start(context, listener)
+        status.setText(if (started) R.string.listening else R.string.voice_unavailable)
     }
 
     fun stop() {
         main.removeCallbacksAndMessages(null)
-        releaseRecognizer()
+        if (root.viewTreeObserver.isAlive) {
+            root.viewTreeObserver.removeOnGlobalLayoutListener(layoutListener)
+        }
+        SpeechHub.stop()
     }
 
-    private fun startListening() {
-        val created = createRecognizer()
-        if (created == null) {
-            status.setText(R.string.voice_unavailable)
-            return
+    private fun applyPad() {
+        if (baseBottom < 0) return
+        val extra = SheetInsets.extraBottom(card)
+        val target = baseBottom + extra
+        if (card.paddingBottom != target) {
+            card.setPadding(card.paddingLeft, card.paddingTop, card.paddingRight, target)
         }
-        recognizer = created
-        created.setRecognitionListener(listener)
-        status.setText(R.string.listening)
-        try {
-            created.startListening(recognizeIntent())
-        } catch (_: Exception) {
-            status.setText(R.string.voice_unavailable)
-            releaseRecognizer()
-        }
-    }
-
-    private fun createRecognizer(): SpeechRecognizer? {
-        return try {
-            if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-                try {
-                    SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-                } catch (_: Exception) {
-                    SpeechRecognizer.createSpeechRecognizer(context)
-                }
-            } else {
-                SpeechRecognizer.createSpeechRecognizer(context)
-            }
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun recognizeIntent(): Intent {
-        return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
-            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
-        }
-    }
-
-    private fun showHeard(text: String) {
-        filling = true
-        question.setText(text)
-        question.setSelection(text.length)
-        filling = false
     }
 
     private fun submit() {
@@ -140,51 +108,52 @@ class AskController(
         sending = true
         send.isEnabled = false
         status.setText(R.string.sending)
-        releaseRecognizer()
-        Sender.send(
-            context,
-            question.text?.toString().orEmpty(),
-            source.screenshot,
-            source.screenText,
-            source.pageUrl,
-            source.urls,
-        ) { outcome ->
-            sending = false
-            when (outcome) {
-                is Sender.Outcome.Sent -> {
-                    val message = if (outcome.imageNote == null) {
-                        context.getString(R.string.sent)
-                    } else {
-                        context.getString(R.string.sent_without_image, outcome.imageNote)
-                    }
-                    Notices.sent(context, message)
-                    onClose()
-                }
-                is Sender.Outcome.Failed -> {
+        val questionText = question.text?.toString().orEmpty()
+        val screenText = source.screenText
+        val pageUrl = source.pageUrl
+        val urls = ArrayList(source.urls)
+        val shot = source.screenshot?.takeUnless { it.isRecycled }
+        val clipboard = Sender.peekClipboard(context)
+        SpeechHub.stop()
+        Thread {
+            val jpeg = try {
+                if (shot == null) null else Sender.writeJpeg(context, shot)
+            } catch (error: Throwable) {
+                Diagnostics.log(context, "jpeg", error)
+                null
+            }
+            val latch = SendService.Handoff.arm()
+            val launched = AtomicBoolean(false)
+            val app = context.applicationContext
+            main.post {
+                try {
+                    app.startForegroundService(
+                        SendService.intent(app, questionText, screenText, pageUrl, urls, clipboard, jpeg),
+                    )
+                    launched.set(true)
+                } catch (error: Throwable) {
+                    Diagnostics.log(app, "start send", error)
+                    jpeg?.delete()
+                    SendService.Handoff.signal()
+                    sending = false
                     send.isEnabled = true
-                    status.text = outcome.message
-                    Notices.problem(context, outcome.message)
-                    if (outcome.message.contains("settings")) {
-                        context.startActivity(
-                            Intent(context, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
+                    status.text = error.message ?: context.getString(R.string.send_failed)
                 }
             }
-        }
-    }
-
-    private fun releaseRecognizer() {
-        val current = recognizer ?: return
-        recognizer = null
-        try {
-            current.cancel()
-        } catch (_: Exception) {
-        }
-        try {
-            current.destroy()
-        } catch (_: Exception) {
-        }
+            val foreground = latch.await(2, TimeUnit.SECONDS)
+            main.post {
+                if (!launched.get()) return@post
+                if (!foreground) {
+                    Diagnostics.log(app, "send service did not reach the foreground")
+                    jpeg?.delete()
+                    sending = false
+                    send.isEnabled = true
+                    status.setText(R.string.send_failed)
+                    return@post
+                }
+                onClose()
+            }
+        }.start()
     }
 
     private val listener = object : RecognitionListener {
@@ -206,15 +175,20 @@ class AskController(
             if (sending) return
             status.setText(
                 when (error) {
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> R.string.mic_needed
-                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> R.string.voice_offline
+                    android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> R.string.mic_needed
+                    android.speech.SpeechRecognizer.ERROR_NETWORK,
+                    android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+                    -> R.string.voice_offline
                     else -> R.string.voice_try_typing
                 },
             )
         }
 
         override fun onResults(results: Bundle?) {
-            val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+            val text = results
+                ?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
+                .orEmpty()
             if (text.isBlank()) {
                 status.setText(R.string.voice_try_typing)
                 return
@@ -225,10 +199,19 @@ class AskController(
 
         override fun onPartialResults(partialResults: Bundle?) {
             if (userEdited || sending) return
-            val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            val text = partialResults
+                ?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
             if (!text.isNullOrBlank()) showHeard(text)
         }
 
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    }
+
+    private fun showHeard(text: String) {
+        filling = true
+        question.setText(text)
+        question.setSelection(text.length)
+        filling = false
     }
 }

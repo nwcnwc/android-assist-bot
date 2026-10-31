@@ -4,8 +4,11 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.role.RoleManager
+import android.content.BroadcastReceiver
 import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -14,11 +17,16 @@ import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
+import io.github.nwcnwc.askbutton.diag.Diagnostics
+import io.github.nwcnwc.askbutton.logic.HostChoice
+import io.github.nwcnwc.askbutton.logic.HostKind
 import io.github.nwcnwc.askbutton.logic.SetupLink
 import io.github.nwcnwc.askbutton.logic.WebUrls
-import io.github.nwcnwc.askbutton.net.Sender
+import io.github.nwcnwc.askbutton.net.SendService
 import io.github.nwcnwc.askbutton.notify.Notices
+import io.github.nwcnwc.askbutton.store.LastRequest
 import io.github.nwcnwc.askbutton.store.Settings
 import java.net.URI
 
@@ -27,11 +35,19 @@ class SettingsActivity : Activity() {
     private lateinit var auth: EditText
     private lateinit var imgbb: EditText
     private lateinit var upload: EditText
-    private lateinit var assistantStatus: android.widget.TextView
     private lateinit var assistantButton: Button
     private lateinit var micButton: Button
     private lateinit var noteButton: Button
+    private lateinit var checklist: TextView
+    private lateinit var lastRequest: TextView
+    private lateinit var logView: TextView
     private var askedClipboard = false
+    private var advancedOpen = false
+    private val requestDone = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            refreshStatus()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,8 +57,10 @@ class SettingsActivity : Activity() {
         auth = findViewById(R.id.auth)
         imgbb = findViewById(R.id.imgbb)
         upload = findViewById(R.id.upload)
-        assistantStatus = findViewById(R.id.assistant_status)
         assistantButton = findViewById(R.id.assistant_button)
+        checklist = findViewById(R.id.checklist)
+        lastRequest = findViewById(R.id.last_request)
+        logView = findViewById(R.id.log)
         micButton = findViewById(R.id.mic_button)
         noteButton = findViewById(R.id.note_button)
         wireReveal(auth, findViewById(R.id.auth_toggle))
@@ -51,6 +69,7 @@ class SettingsActivity : Activity() {
             if (saveFromFields()) toast(getString(R.string.saved))
         }
         findViewById<Button>(R.id.test).setOnClickListener { testSend() }
+        findViewById<Button>(R.id.advanced_toggle).setOnClickListener { toggleAdvanced() }
         micButton.setOnClickListener { requestIfNeeded(Manifest.permission.RECORD_AUDIO) }
         noteButton.setOnClickListener {
             if (Build.VERSION.SDK_INT >= 33) requestIfNeeded(Manifest.permission.POST_NOTIFICATIONS)
@@ -71,6 +90,22 @@ class SettingsActivity : Activity() {
         super.onResume()
         refreshAssistant()
         refreshPermissions()
+        refreshStatus()
+        val filter = IntentFilter(LastRequest.ACTION)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(requestDone, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(requestDone, filter)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            unregisterReceiver(requestDone)
+        } catch (_: Exception) {
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -134,6 +169,7 @@ class SettingsActivity : Activity() {
             return false
         }
         loadFields()
+        refreshStatus()
         val host = params.webhook?.let { runCatching { URI(it).host }.getOrNull() }
         toast(if (host.isNullOrBlank()) getString(R.string.saved) else getString(R.string.saved_host, host))
         return true
@@ -156,6 +192,7 @@ class SettingsActivity : Activity() {
             settings.authorization = auth.text.toString()
             settings.imgbbKey = imgbb.text.toString()
             settings.uploadUrl = uploadText
+            refreshStatus()
             true
         } catch (_: Exception) {
             toast(getString(R.string.store_failed))
@@ -173,22 +210,54 @@ class SettingsActivity : Activity() {
 
     private fun testSend() {
         if (!saveFromFields()) return
-        val button = findViewById<Button>(R.id.test)
-        button.isEnabled = false
-        Sender.send(this, "Test from Ask Button", null, "", null, emptyList()) { outcome ->
-            button.isEnabled = true
-            when (outcome) {
-                is Sender.Outcome.Sent -> Notices.sent(this, getString(R.string.sent))
-                is Sender.Outcome.Failed -> Notices.problem(this, outcome.message)
-            }
+        val app = applicationContext
+        try {
+            startForegroundService(
+                SendService.intent(app, "Test from Ask Button", "", null, arrayListOf(), null, null),
+            )
+            toast(getString(R.string.sending))
+        } catch (error: Exception) {
+            toast(error.message ?: getString(R.string.send_failed))
         }
+    }
+
+    private fun refreshStatus() {
+        val settings = Settings(this)
+        val roles = getSystemService(RoleManager::class.java)
+        val assistant = roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT) &&
+            roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)
+        val mic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val image = when (HostChoice.kind(settings.imgbbKey, settings.uploadUrl)) {
+            HostKind.IMGBB -> "ImgBB key: set"
+            HostKind.CUSTOM -> "Image host: custom URL"
+            HostKind.NONE -> "ImgBB key: missing"
+        }
+        checklist.text = listOf(
+            mark(settings.webhook.isNotBlank(), "Webhook URL"),
+            mark(settings.authorization.isNotBlank(), "Authorization header"),
+            image,
+            if (assistant) "Digital assistant: on" else "Digital assistant: off",
+            if (mic) "Microphone: allowed" else "Microphone: not allowed",
+        ).joinToString("\n")
+        lastRequest.text = LastRequest.line(this)
+        if (advancedOpen) logView.text = Diagnostics.read(this)
+    }
+
+    private fun mark(ok: Boolean, label: String): String = if (ok) "$label: set" else "$label: missing"
+
+    private fun toggleAdvanced() {
+        advancedOpen = !advancedOpen
+        findViewById<View>(R.id.advanced).visibility = if (advancedOpen) View.VISIBLE else View.GONE
+        findViewById<Button>(R.id.advanced_toggle).setText(
+            if (advancedOpen) R.string.advanced_hide else R.string.advanced,
+        )
+        if (advancedOpen) logView.text = Diagnostics.read(this)
     }
 
     private fun refreshAssistant() {
         val roles = getSystemService(RoleManager::class.java)
         val available = roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT)
         val held = available && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)
-        assistantStatus.setText(if (held) R.string.assistant_on else R.string.assistant_off)
         assistantButton.setText(if (held) R.string.assistant_manage else R.string.assistant_set)
         assistantButton.setOnClickListener {
             if (!available) {
