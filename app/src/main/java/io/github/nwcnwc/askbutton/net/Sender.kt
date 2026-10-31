@@ -55,8 +55,13 @@ object Sender {
             Screenshot.Embedded.none
         }
         val shotNote = embedded.omitted ?: if (embedded.base64 == null) "none" else "inline"
-        Diagnostics.log(context, "send start host=$host bytes=${jpegFile?.length() ?: 0} shot=$shotNote")
         val json = Payload.json(question, url, urlSource, screenText, embedded.base64, embedded.omitted)
+        val bodyBytes = json.toByteArray(Charsets.UTF_8).size
+        val b64Len = embedded.base64?.trim()?.ifEmpty { null }?.length ?: 0
+        Diagnostics.log(
+            context,
+            "send start host=$host bytes=${jpegFile?.length() ?: 0} shot=$shotNote body_bytes=$bodyBytes b64_len=$b64Len",
+        )
         val headers = LinkedHashMap<String, String>()
         val auth = settings.authorization
         if (auth.isNotEmpty()) headers["Authorization"] = auth

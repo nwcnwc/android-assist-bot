@@ -12,9 +12,57 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.request import Request, urlopen
+
+
+def load_payload(raw: bytes) -> dict:
+    text = raw.decode("utf-8", "replace")
+    try:
+        parsed = json.loads(text or "{}")
+    except json.JSONDecodeError:
+        # Size fields sit before screenshot_base64, so a cut body can still be measured.
+        return recover_truncated(text)
+    if isinstance(parsed, dict):
+        return parsed
+    return {"_raw": text}
+
+
+def recover_truncated(text: str) -> dict:
+    payload: dict = {"_recovered": True}
+    found = False
+    match = re.search(r'"screenshot_b64_len"\s*:\s*(\d+)', text)
+    if match:
+        payload["screenshot_b64_len"] = int(match.group(1))
+        found = True
+    match = re.search(r'"body_bytes"\s*:\s*(\d+)', text)
+    if match:
+        payload["body_bytes"] = int(match.group(1))
+        found = True
+    match = re.search(r'"screenshot_base64"\s*:\s*(null|"(.*))', text, re.S)
+    if match:
+        found = True
+        if match.group(1) == "null":
+            payload["screenshot_base64"] = None
+        else:
+            raw_shot = match.group(2)
+            end = raw_shot.find('"')
+            payload["screenshot_base64"] = raw_shot if end < 0 else raw_shot[:end]
+    if not found:
+        return {"_raw": text}
+    return payload
+
+
+def shot_len(payload: dict) -> int:
+    shot = payload.get("screenshot_base64")
+    return len(shot) if isinstance(shot, str) else 0
+
+
+def is_truncated(payload: dict) -> bool:
+    declared = payload.get("screenshot_b64_len")
+    return isinstance(declared, int) and declared != shot_len(payload)
 
 
 def ask_llm(payload: dict) -> str | None:
@@ -59,12 +107,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length)
-        try:
-            payload = json.loads(raw.decode() or "{}")
-        except json.JSONDecodeError:
-            payload = {"_raw": raw.decode("utf-8", "replace")}
-        if not isinstance(payload, dict):
-            payload = {"_raw": raw.decode("utf-8", "replace")}
+        payload = load_payload(raw)
         summary = {
             key: payload.get(key)
             for key in (
@@ -74,11 +117,16 @@ class Handler(BaseHTTPRequestHandler):
                 "screen_text",
                 "screenshot_mime",
                 "screenshot_omitted",
+                "screenshot_b64_len",
+                "body_bytes",
             )
         }
-        shot = payload.get("screenshot_base64")
-        summary["screenshot_base64_chars"] = len(shot) if isinstance(shot, str) else 0
+        summary["screenshot_base64_chars"] = shot_len(payload)
+        truncated = is_truncated(payload)
+        summary["truncated"] = truncated
         print(json.dumps(summary, indent=2))
+        if truncated:
+            print("truncated: len(screenshot_base64) != screenshot_b64_len")
         sys.stdout.flush()
         answer = None
         try:
