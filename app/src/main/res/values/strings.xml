@@ -5,16 +5,19 @@
     <string name="shortcut_short">Ask</string>
     <string name="shortcut_long">Ask about this screen</string>
 
-    <string name="tagline">Hold the assistant gesture on any screen, ask out loud, and the screenshot goes to your bot.</string>
+    <string name="setup_steps">1. Copy the webhook from your Grok Bot. Open the bot in the Grok Bot app, open its “Ask about what\'s on my screen” routine, open the webhook panel, and copy the URL and the Authorization header.\n\n2. ImgBB is a free image host. Ask Button uploads the screenshot there and sends the bot the link. Get a key at https://api.imgbb.com.\n\n3. Make Ask Button your digital assistant.\n\n4. Send a test. A real ask uses the same path.</string>
     <string name="webhook_label">Webhook URL</string>
     <string name="webhook_hint">https://…</string>
+    <string name="webhook_help">Paste the URL from the Grok Bot routine webhook panel.</string>
     <string name="auth_label">Authorization header</string>
     <string name="auth_hint">Bearer …</string>
+    <string name="auth_help">Paste the Authorization header from that same panel. It usually starts with Bearer.</string>
     <string name="imgbb_label">ImgBB API key</string>
-    <string name="imgbb_hint">Optional, from api.imgbb.com</string>
+    <string name="imgbb_hint">From api.imgbb.com</string>
+    <string name="imgbb_help">Without this, the bot still gets your question and the on-screen text, but not the picture. Free keys: https://api.imgbb.com</string>
     <string name="upload_label">Custom image host</string>
-    <string name="upload_hint">https://… used when the ImgBB key is empty</string>
-    <string name="upload_help">The screenshot is uploaded first. The webhook gets a temporary https link, not the image bytes. ImgBB links expire after 6 hours. A custom host receives a JPEG field named image and returns an https URL.</string>
+    <string name="upload_hint">Optional https URL</string>
+    <string name="upload_help">Used only when the ImgBB key is empty. The phone posts a JPEG named image and expects an https link back.</string>
     <string name="save">Save</string>
     <string name="saved">Saved</string>
     <string name="saved_host">Saved webhook for %1$s</string>
@@ -27,19 +30,23 @@
     <string name="clipboard_title">Save webhook from clipboard?</string>
     <string name="clipboard_body">This link updates Ask Button.</string>
     <string name="not_now">Not now</string>
+    <string name="send_failed">Couldn\'t start sending.</string>
+    <string name="advanced">Advanced</string>
+    <string name="advanced_hide">Hide advanced</string>
 
-    <string name="assistant_on">Ask Button is the digital assistant.</string>
-    <string name="assistant_off">Ask Button is not the digital assistant yet.</string>
-    <string name="assistant_set">Set as digital assistant</string>
+    <string name="assistant_on">Assistant: on</string>
+    <string name="assistant_off">Assistant: not set</string>
+    <string name="assistant_set">Make it your assistant</string>
     <string name="assistant_manage">Open default apps</string>
     <string name="assistant_missing">This phone has no digital assistant slot. Use the Quick Settings tile.</string>
     <string name="mic_allow">Allow microphone</string>
     <string name="mic_allowed">Microphone allowed</string>
     <string name="notes_allow">Allow notifications</string>
     <string name="notes_allowed">Notifications allowed</string>
-    <string name="how_title">How to invoke it</string>
-    <string name="how_body">Stock Android: Settings, Apps, Default apps, Digital assistant app, Ask Button. Then long-press Home, or swipe in from a bottom corner if that gesture is available.\n\nSamsung One UI: Settings, Apps, Default apps (or Choose default apps), Digital assistant app. Long-press Home if you use buttons. One UI 7 has no corner swipe. Add the Ask Button Quick Settings tile, or long-press the app icon and tap Ask about this screen.\n\nA power-button shortcut is optional. The app does not need one.</string>
-    <string name="setup_link_help">A bot can open androidassistbot://setup?webhook=…&amp;auth=… after install. A QR code of that link works with the camera app. auth is the Authorization header value, usually Bearer and the key.</string>
+    <string name="how_title">How to open it</string>
+    <string name="how_body">Long-press the Home button. On stock Android with gesture navigation, you can also swipe in from a bottom corner when that gesture is turned on.\n\nSamsung One UI 7 has no corner swipe. Add the Ask Button Quick Settings tile, or long-press the app icon and tap Ask about this screen. A power button shortcut is optional.</string>
+    <string name="setup_link_help">A bot can open androidassistbot://setup?webhook=…&amp;auth=… after install. A QR code of that link works with the camera app. auth is the Authorization header value, usually Bearer and the key. The link contains the secret.</string>
+    <string name="log_label">Diagnostic log</string>
 
     <string name="listening">Listening…</string>
     <string name="hearing">Hearing you…</string>

@@ -33,15 +33,37 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
+            android:autoLink="web"
             android:lineSpacingExtra="3dp"
-            android:text="@string/tagline"
-            android:textColor="@color/muted"
+            android:text="@string/setup_steps"
+            android:textColor="@color/ink"
             android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/checklist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:lineSpacingExtra="4dp"
+            android:textColor="@color/muted"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/last_request"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/ink"
+            android:textSize="15sp" />
 
         <TextView
             style="@style/Label"
             android:text="@string/webhook_label" />
+
+        <TextView
+            style="@style/Helper"
+            android:text="@string/webhook_help" />
 
         <EditText
             android:id="@+id/webhook"
@@ -54,6 +76,10 @@
             style="@style/Label"
             android:text="@string/auth_label" />
 
+        <TextView
+            style="@style/Helper"
+            android:text="@string/auth_help" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -63,7 +89,6 @@
                 android:id="@+id/auth"
                 style="@style/Field"
                 android:layout_width="0dp"
-                android:layout_marginTop="6dp"
                 android:layout_weight="1"
                 android:hint="@string/auth_hint"
                 android:inputType="textPassword"
@@ -82,6 +107,11 @@
         <TextView
             style="@style/Label"
             android:text="@string/imgbb_label" />
+
+        <TextView
+            style="@style/Helper"
+            android:autoLink="web"
+            android:text="@string/imgbb_help" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -111,6 +141,10 @@
             style="@style/Label"
             android:text="@string/upload_label" />
 
+        <TextView
+            style="@style/Helper"
+            android:text="@string/upload_help" />
+
         <EditText
             android:id="@+id/upload"
             style="@style/Field"
@@ -118,35 +152,20 @@
             android:inputType="textUri"
             android:singleLine="true" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:lineSpacingExtra="2dp"
-            android:text="@string/upload_help"
-            android:textColor="@color/faint"
-            android:textSize="13sp" />
-
         <Button
             android:id="@+id/save"
             style="@style/AccentButton"
             android:text="@string/save" />
 
         <Button
-            android:id="@+id/test"
-            style="@style/QuietButton"
-            android:text="@string/test" />
-
-        <TextView
-            android:id="@+id/assistant_status"
-            style="@style/Label"
-            android:text="@string/assistant_off"
-            android:textSize="15sp" />
-
-        <Button
             android:id="@+id/assistant_button"
             style="@style/AccentButton"
             android:text="@string/assistant_set" />
+
+        <Button
+            android:id="@+id/test"
+            style="@style/QuietButton"
+            android:text="@string/test" />
 
         <Button
             android:id="@+id/mic_button"
@@ -160,8 +179,7 @@
 
         <TextView
             style="@style/Label"
-            android:text="@string/how_title"
-            android:textSize="15sp" />
+            android:text="@string/how_title" />
 
         <TextView
             android:layout_width="match_parent"
@@ -170,15 +188,42 @@
             android:lineSpacingExtra="3dp"
             android:text="@string/how_body"
             android:textColor="@color/muted"
-            android:textSize="14sp" />
+            android:textSize="15sp" />
 
-        <TextView
+        <Button
+            android:id="@+id/advanced_toggle"
+            style="@style/QuietButton"
+            android:text="@string/advanced" />
+
+        <LinearLayout
+            android:id="@+id/advanced"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/setup_link_help"
-            android:textColor="@color/faint"
-            android:textSize="13sp" />
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/setup_link_help"
+                android:textColor="@color/faint"
+                android:textSize="13sp" />
+
+            <TextView
+                style="@style/Label"
+                android:text="@string/log_label" />
+
+            <TextView
+                android:id="@+id/log"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/muted"
+                android:textIsSelectable="true"
+                android:textSize="12sp" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

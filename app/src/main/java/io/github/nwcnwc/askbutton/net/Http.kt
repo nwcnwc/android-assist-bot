@@ -65,7 +65,7 @@ object Http {
         connection.instanceFollowRedirects = false
         connection.connectTimeout = timeoutMs
         connection.readTimeout = timeoutMs
-        connection.setRequestProperty("User-Agent", "AskButton/0.1")
+        connection.setRequestProperty("User-Agent", "AskButton/0.1.1")
         return connection
     }
 

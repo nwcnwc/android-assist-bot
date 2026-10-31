@@ -12,9 +12,12 @@ import android.os.Build
 import android.widget.Toast
 import io.github.nwcnwc.askbutton.R
 import io.github.nwcnwc.askbutton.ask.AskActivity
+import io.github.nwcnwc.askbutton.logic.RequestText
+import io.github.nwcnwc.askbutton.net.Sender
 
 object Notices {
     const val CAPTURE_ID = 21
+    const val SENDING_ID = 25
     private const val SENT_ID = 22
     private const val PROBLEM_ID = 23
     private const val TAP_ID = 24
@@ -28,9 +31,35 @@ object Notices {
         capture.setSound(null, null)
         capture.enableVibration(false)
         val problems = NotificationChannel(CHANNEL_PROBLEMS, "Problems", NotificationManager.IMPORTANCE_DEFAULT)
+        val results = NotificationChannel(CHANNEL_RESULTS, "Send result", NotificationManager.IMPORTANCE_DEFAULT)
         manager.createNotificationChannel(sent)
         manager.createNotificationChannel(capture)
         manager.createNotificationChannel(problems)
+        manager.createNotificationChannel(results)
+    }
+
+    fun sending(context: Context): Notification {
+        ensure(context)
+        return Notification.Builder(context, CHANNEL_CAPTURE)
+            .setSmallIcon(R.drawable.ic_stat)
+            .setContentTitle("Sending")
+            .setContentText("Ask Button is sending this screen.")
+            .setOngoing(true)
+            .build()
+    }
+
+    fun result(context: Context, report: Sender.Report) {
+        val summary = RequestText.summary(report.ok, report.httpCode, report.detail)
+        if (!canNotify(context)) return
+        ensure(context)
+        val notification = Notification.Builder(context, CHANNEL_RESULTS)
+            .setSmallIcon(R.drawable.ic_stat)
+            .setContentTitle(if (report.ok) "Sent" else "Not sent")
+            .setContentText(summary)
+            .setStyle(Notification.BigTextStyle().bigText(summary))
+            .setAutoCancel(true)
+            .build()
+        context.getSystemService(NotificationManager::class.java).notify(if (report.ok) SENT_ID else PROBLEM_ID, notification)
     }
 
     fun capture(context: Context): Notification {
@@ -101,4 +130,5 @@ object Notices {
     private const val CHANNEL_SENT = "sent"
     private const val CHANNEL_CAPTURE = "capture"
     private const val CHANNEL_PROBLEMS = "problems"
+    private const val CHANNEL_RESULTS = "results"
 }
