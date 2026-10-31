@@ -9,8 +9,6 @@ object SetupLink {
     data class Params(
         val webhook: String?,
         val authorization: String?,
-        val imgbbKey: String?,
-        val uploadUrl: String?,
     )
 
     fun parse(raw: String): Params? {
@@ -23,7 +21,7 @@ object SetupLink {
         if (!host.equals(HOST, ignoreCase = true)) return null
         val query = text.substringAfter('?', "").substringBefore('#')
         if (query.isEmpty() || !text.contains('?')) {
-            return Params(null, null, null, null)
+            return Params(null, null)
         }
         val params = LinkedHashMap<String, String>()
         for (part in query.split('&')) {
@@ -35,8 +33,6 @@ object SetupLink {
         return Params(
             webhook = params["webhook"]?.trim()?.ifEmpty { null },
             authorization = first(params, "auth", "authorization", "header"),
-            imgbbKey = first(params, "imgbb", "imgbb_key"),
-            uploadUrl = first(params, "upload", "upload_url"),
         )
     }
 
@@ -44,8 +40,6 @@ object SetupLink {
         val parts = ArrayList<String>()
         params.webhook?.let { parts.add("webhook=" + encode(it)) }
         params.authorization?.let { parts.add("auth=" + encode(it)) }
-        params.imgbbKey?.let { parts.add("imgbb=" + encode(it)) }
-        params.uploadUrl?.let { parts.add("upload=" + encode(it)) }
         val query = if (parts.isEmpty()) "" else "?" + parts.joinToString("&")
         return "$SCHEME://$HOST$query"
     }

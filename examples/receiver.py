@@ -27,8 +27,17 @@ def ask_llm(payload: dict) -> str | None:
         parts.append("Link: " + str(payload["url"]))
     if payload.get("screen_text"):
         parts.append("On-screen text:\n" + str(payload["screen_text"]))
-    if payload.get("screenshot_url"):
-        parts.append("Screenshot: " + str(payload["screenshot_url"]))
+    shot = payload.get("screenshot_base64")
+    if isinstance(shot, str) and shot:
+        parts.append(
+            "A JPEG screenshot is included ("
+            + str(payload.get("screenshot_mime") or "image/jpeg")
+            + ", "
+            + str(len(shot))
+            + " base64 characters)."
+        )
+    elif payload.get("screenshot_omitted"):
+        parts.append("Screenshot omitted: " + str(payload["screenshot_omitted"]))
     body = json.dumps(
         {
             "model": os.environ.get("XAI_MODEL", "grok-4"),
@@ -54,7 +63,15 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(raw.decode() or "{}")
         except json.JSONDecodeError:
             payload = {"_raw": raw.decode("utf-8", "replace")}
-        print(json.dumps({k: payload.get(k) for k in ("question", "url", "screen_text", "screenshot_url")}, indent=2))
+        if not isinstance(payload, dict):
+            payload = {"_raw": raw.decode("utf-8", "replace")}
+        summary = {
+            key: payload.get(key)
+            for key in ("question", "url", "screen_text", "screenshot_mime", "screenshot_omitted")
+        }
+        shot = payload.get("screenshot_base64")
+        summary["screenshot_base64_chars"] = len(shot) if isinstance(shot, str) else 0
+        print(json.dumps(summary, indent=2))
         sys.stdout.flush()
         answer = None
         try:

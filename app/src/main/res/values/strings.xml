@@ -5,19 +5,15 @@
     <string name="shortcut_short">Ask</string>
     <string name="shortcut_long">Ask about this screen</string>
 
-    <string name="setup_steps">1. Copy the webhook from your Grok Bot. Open the bot in the Grok Bot app, open its “Ask about what\'s on my screen” routine, open the webhook panel, and copy the URL and the Authorization header.\n\n2. ImgBB is a free image host. Ask Button uploads the screenshot there and sends the bot the link. Get a key at https://api.imgbb.com.\n\n3. Make Ask Button your digital assistant.\n\n4. Send a test. A real ask uses the same path.</string>
+    <string name="setup_steps">1. Copy the webhook from your Grok Bot. Open the bot in the Grok Bot app, open its “Ask about what\'s on my screen” routine, open the webhook panel, and copy the URL and the Authorization header.\n\n2. Make Ask Button your digital assistant.\n\n3. Send a test. A real ask uses the same path.</string>
     <string name="webhook_label">Webhook URL</string>
     <string name="webhook_hint">https://…</string>
     <string name="webhook_help">Paste the URL from the Grok Bot routine webhook panel.</string>
     <string name="auth_label">Authorization header</string>
     <string name="auth_hint">Bearer …</string>
     <string name="auth_help">Paste the Authorization header from that same panel. It usually starts with Bearer.</string>
-    <string name="imgbb_label">ImgBB API key</string>
-    <string name="imgbb_hint">From api.imgbb.com</string>
-    <string name="imgbb_help">Without this, the bot still gets your question and the on-screen text, but not the picture. Free keys: https://api.imgbb.com</string>
-    <string name="upload_label">Custom image host</string>
-    <string name="upload_hint">Optional https URL</string>
-    <string name="upload_help">Used only when the ImgBB key is empty. The phone posts a JPEG named image and expects an https link back.</string>
+    <string name="include_screenshot_label">Include screenshot</string>
+    <string name="privacy_note">Screenshots and screen text go only to your own Grok Bot webhook, never to a third party.</string>
     <string name="save">Save</string>
     <string name="saved">Saved</string>
     <string name="saved_host">Saved webhook for %1$s</string>
@@ -25,7 +21,6 @@
     <string name="show">Show</string>
     <string name="hide">Hide</string>
     <string name="webhook_https">Webhook must be an https URL.</string>
-    <string name="upload_https">Image host must be an https URL.</string>
     <string name="store_failed">Couldn\'t store the secret on this phone.</string>
     <string name="clipboard_title">Save webhook from clipboard?</string>
     <string name="clipboard_body">This link updates Ask Button.</string>

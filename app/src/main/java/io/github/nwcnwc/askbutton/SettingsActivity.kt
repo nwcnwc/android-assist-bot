@@ -17,11 +17,10 @@ import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import io.github.nwcnwc.askbutton.diag.Diagnostics
-import io.github.nwcnwc.askbutton.logic.HostChoice
-import io.github.nwcnwc.askbutton.logic.HostKind
 import io.github.nwcnwc.askbutton.logic.SetupLink
 import io.github.nwcnwc.askbutton.logic.WebUrls
 import io.github.nwcnwc.askbutton.net.SendService
@@ -33,8 +32,7 @@ import java.net.URI
 class SettingsActivity : Activity() {
     private lateinit var webhook: EditText
     private lateinit var auth: EditText
-    private lateinit var imgbb: EditText
-    private lateinit var upload: EditText
+    private lateinit var includeScreenshot: Switch
     private lateinit var assistantButton: Button
     private lateinit var micButton: Button
     private lateinit var noteButton: Button
@@ -55,8 +53,7 @@ class SettingsActivity : Activity() {
         Notices.ensure(this)
         webhook = findViewById(R.id.webhook)
         auth = findViewById(R.id.auth)
-        imgbb = findViewById(R.id.imgbb)
-        upload = findViewById(R.id.upload)
+        includeScreenshot = findViewById(R.id.include_screenshot)
         assistantButton = findViewById(R.id.assistant_button)
         checklist = findViewById(R.id.checklist)
         lastRequest = findViewById(R.id.last_request)
@@ -64,7 +61,6 @@ class SettingsActivity : Activity() {
         micButton = findViewById(R.id.mic_button)
         noteButton = findViewById(R.id.note_button)
         wireReveal(auth, findViewById(R.id.auth_toggle))
-        wireReveal(imgbb, findViewById(R.id.imgbb_toggle))
         findViewById<Button>(R.id.save).setOnClickListener {
             if (saveFromFields()) toast(getString(R.string.saved))
         }
@@ -75,6 +71,14 @@ class SettingsActivity : Activity() {
             if (Build.VERSION.SDK_INT >= 33) requestIfNeeded(Manifest.permission.POST_NOTIFICATIONS)
         }
         loadFields()
+        includeScreenshot.setOnCheckedChangeListener { _, checked ->
+            try {
+                Settings(this).includeScreenshot = checked
+                refreshStatus()
+            } catch (_: Exception) {
+                toast(getString(R.string.store_failed))
+            }
+        }
         val appliedLink = handleIntent(intent)
         maybeRequestPermissions()
         if (!appliedLink) maybeClipboard()
@@ -153,16 +157,10 @@ class SettingsActivity : Activity() {
             toast(getString(R.string.webhook_https))
             return false
         }
-        if (params.uploadUrl != null && !WebUrls.isHttpsUrl(params.uploadUrl)) {
-            toast(getString(R.string.upload_https))
-            return false
-        }
         val settings = Settings(this)
         try {
             params.webhook?.let { settings.webhook = it }
             params.authorization?.let { settings.authorization = it }
-            params.imgbbKey?.let { settings.imgbbKey = it }
-            params.uploadUrl?.let { settings.uploadUrl = it }
             settings.dismissedClip(stampSource.hashCode().toString())
         } catch (_: Exception) {
             toast(getString(R.string.store_failed))
@@ -177,21 +175,15 @@ class SettingsActivity : Activity() {
 
     private fun saveFromFields(): Boolean {
         val webhookText = webhook.text.toString().trim()
-        val uploadText = upload.text.toString().trim()
         if (webhookText.isNotEmpty() && !WebUrls.isHttpsUrl(webhookText)) {
             toast(getString(R.string.webhook_https))
-            return false
-        }
-        if (uploadText.isNotEmpty() && !WebUrls.isHttpsUrl(uploadText)) {
-            toast(getString(R.string.upload_https))
             return false
         }
         return try {
             val settings = Settings(this)
             settings.webhook = webhookText
             settings.authorization = auth.text.toString()
-            settings.imgbbKey = imgbb.text.toString()
-            settings.uploadUrl = uploadText
+            settings.includeScreenshot = includeScreenshot.isChecked
             refreshStatus()
             true
         } catch (_: Exception) {
@@ -204,8 +196,7 @@ class SettingsActivity : Activity() {
         val settings = Settings(this)
         webhook.setText(settings.webhook)
         auth.setText(settings.authorization)
-        imgbb.setText(settings.imgbbKey)
-        upload.setText(settings.uploadUrl)
+        includeScreenshot.isChecked = settings.includeScreenshot
     }
 
     private fun testSend() {
@@ -214,7 +205,7 @@ class SettingsActivity : Activity() {
         try {
             SendService.enqueue(
                 app,
-                SendService.intent(app, "Test from Ask Button", "", null, arrayListOf(), null, null),
+                SendService.intent(app, "Test from Ask Button", "", null, arrayListOf(), null, null, null),
             )
             toast(getString(R.string.sending))
         } catch (error: Exception) {
@@ -228,15 +219,11 @@ class SettingsActivity : Activity() {
         val assistant = roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT) &&
             roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)
         val mic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val image = when (HostChoice.kind(settings.imgbbKey, settings.uploadUrl)) {
-            HostKind.IMGBB -> "ImgBB key: set"
-            HostKind.CUSTOM -> "Image host: custom URL"
-            HostKind.NONE -> "ImgBB key: missing"
-        }
+        val shot = if (settings.includeScreenshot) "Include screenshot: on" else "Include screenshot: off"
         checklist.text = listOf(
             mark(settings.webhook.isNotBlank(), "Webhook URL"),
             mark(settings.authorization.isNotBlank(), "Authorization header"),
-            image,
+            shot,
             if (assistant) "Digital assistant: on" else "Digital assistant: off",
             if (mic) "Microphone: allowed" else "Microphone: not allowed",
         ).joinToString("\n")

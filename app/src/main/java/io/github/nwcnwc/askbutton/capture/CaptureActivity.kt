@@ -8,6 +8,8 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import io.github.nwcnwc.askbutton.ask.AskActivity
+import io.github.nwcnwc.askbutton.ask.PendingShot
+import io.github.nwcnwc.askbutton.store.Settings
 
 /**
  * Quick Settings and the launcher shortcut land here. The system consent dialog
@@ -17,6 +19,12 @@ class CaptureActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState != null) return
+        if (!Settings(this).includeScreenshot) {
+            PendingShot.offer(null)
+            startActivity(Intent(this, AskActivity::class.java))
+            finish()
+            return
+        }
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val intent = if (Build.VERSION.SDK_INT >= 34) {
             manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())

@@ -13,7 +13,7 @@ import io.github.nwcnwc.askbutton.store.LastRequest
 import java.io.File
 
 /**
- * Uploads the screenshot and posts the webhook after the assistant sheet closes.
+ * Posts the webhook after the assistant sheet closes.
  * A plain thread was dying with the voice session, so the test from Settings
  * arrived and a real ask did not.
  */
@@ -48,8 +48,9 @@ class SendService : Service() {
         val urls = intent?.getStringArrayListExtra(EXTRA_URLS) ?: arrayListOf()
         val clip = intent?.getStringExtra(EXTRA_CLIP)
         val jpeg = intent?.getStringExtra(EXTRA_JPEG)?.let { File(it) }
+        val omitted = intent?.getStringExtra(EXTRA_OMITTED)
         val report = try {
-            Sender.report(this, question, jpeg, screen, page, urls, clip)
+            Sender.report(this, question, jpeg, omitted, screen, page, urls, clip)
         } catch (error: Throwable) {
             Diagnostics.log(this, "send failed", error)
             Sender.Report(false, 0, RequestText.redact(error.message ?: "Couldn't send").take(180))
@@ -76,6 +77,7 @@ class SendService : Service() {
         private const val EXTRA_URLS = "urls"
         private const val EXTRA_CLIP = "clip"
         private const val EXTRA_JPEG = "jpeg"
+        private const val EXTRA_OMITTED = "omitted"
 
         fun intent(
             context: Context,
@@ -85,6 +87,7 @@ class SendService : Service() {
             urls: ArrayList<String>,
             clipboard: String?,
             jpeg: File?,
+            omitted: String?,
         ): Intent {
             return Intent(context, SendService::class.java)
                 .putExtra(EXTRA_QUESTION, question)
@@ -93,6 +96,7 @@ class SendService : Service() {
                 .putStringArrayListExtra(EXTRA_URLS, urls)
                 .putExtra(EXTRA_CLIP, clipboard)
                 .putExtra(EXTRA_JPEG, jpeg?.absolutePath)
+                .putExtra(EXTRA_OMITTED, omitted)
         }
 
         /** Start the service from a background thread so it cannot deadlock the UI. */
@@ -109,8 +113,9 @@ class SendService : Service() {
                     val urls = intent.getStringArrayListExtra(EXTRA_URLS) ?: arrayListOf()
                     val clip = intent.getStringExtra(EXTRA_CLIP)
                     val jpeg = intent.getStringExtra(EXTRA_JPEG)?.let { File(it) }
+                    val omitted = intent.getStringExtra(EXTRA_OMITTED)
                     val report = try {
-                        Sender.report(app, question, jpeg, screen, page, urls, clip)
+                        Sender.report(app, question, jpeg, omitted, screen, page, urls, clip)
                     } catch (sendError: Throwable) {
                         Sender.Report(false, 0, RequestText.redact(sendError.message ?: "Couldn't send").take(180))
                     } finally {

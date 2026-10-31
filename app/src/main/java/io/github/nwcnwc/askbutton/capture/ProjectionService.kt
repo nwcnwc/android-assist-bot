@@ -20,9 +20,10 @@ import android.view.WindowManager
 import io.github.nwcnwc.askbutton.ask.AskActivity
 import io.github.nwcnwc.askbutton.ask.PendingShot
 import io.github.nwcnwc.askbutton.logic.ImageSize
+import io.github.nwcnwc.askbutton.logic.Screenshot
 import io.github.nwcnwc.askbutton.net.Bitmaps
-import io.github.nwcnwc.askbutton.net.Sender
 import io.github.nwcnwc.askbutton.notify.Notices
+import io.github.nwcnwc.askbutton.store.Settings
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -44,7 +45,13 @@ class ProjectionService : Service() {
                 val code = CaptureBridge.resultCode
                 val data = CaptureBridge.resultData
                 CaptureBridge.resultData = null
-                val bitmap = if (data != null && code == Activity.RESULT_OK) grab(code, data) else null
+                val bitmap = if (!Settings(this).includeScreenshot) {
+                    null
+                } else if (data != null && code == Activity.RESULT_OK) {
+                    grab(code, data)
+                } else {
+                    null
+                }
                 PendingShot.offer(bitmap)
             } catch (_: Exception) {
                 PendingShot.offer(null)
@@ -84,7 +91,7 @@ class ProjectionService : Service() {
                 }
                 projection.registerCallback(object : MediaProjection.Callback() {}, main)
                 val bounds = windowBounds()
-                var (width, height) = ImageSize.fit(bounds[0], bounds[1], Sender.MAX_EDGE)
+                var (width, height) = ImageSize.fit(bounds[0], bounds[1], Screenshot.STEPS.first().maxEdge)
                 if (width % 2 != 0) width -= 1
                 if (height % 2 != 0) height -= 1
                 width = width.coerceAtLeast(2)

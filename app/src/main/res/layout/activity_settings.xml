@@ -104,53 +104,23 @@
                 android:text="@string/show" />
         </LinearLayout>
 
-        <TextView
-            style="@style/Label"
-            android:text="@string/imgbb_label" />
-
-        <TextView
-            style="@style/Helper"
-            android:autoLink="web"
-            android:text="@string/imgbb_help" />
-
-        <LinearLayout
+        <Switch
+            android:id="@+id/include_screenshot"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <EditText
-                android:id="@+id/imgbb"
-                style="@style/Field"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:hint="@string/imgbb_hint"
-                android:inputType="textPassword"
-                android:singleLine="true" />
-
-            <Button
-                android:id="@+id/imgbb_toggle"
-                style="@style/QuietButton"
-                android:layout_width="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="6dp"
-                android:minWidth="72dp"
-                android:text="@string/show" />
-        </LinearLayout>
-
-        <TextView
-            style="@style/Label"
-            android:text="@string/upload_label" />
+            android:layout_marginTop="16dp"
+            android:checked="true"
+            android:minHeight="48dp"
+            android:showText="false"
+            android:text="@string/include_screenshot_label"
+            android:textOff=""
+            android:textOn=""
+            android:textColor="@color/ink"
+            android:textSize="16sp" />
 
         <TextView
             style="@style/Helper"
-            android:text="@string/upload_help" />
-
-        <EditText
-            android:id="@+id/upload"
-            style="@style/Field"
-            android:hint="@string/upload_hint"
-            android:inputType="textUri"
-            android:singleLine="true" />
+            android:text="@string/privacy_note" />
 
         <Button
             android:id="@+id/save"
