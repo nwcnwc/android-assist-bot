@@ -195,5 +195,22 @@
                 android:textIsSelectable="true"
                 android:textSize="12sp" />
         </LinearLayout>
+
+        <Switch
+            android:id="@+id/size_probe"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:minHeight="48dp"
+            android:showText="false"
+            android:text="@string/size_probe_label"
+            android:textColor="@color/faint"
+            android:textOff=""
+            android:textOn=""
+            android:textSize="13sp" />
+
+        <TextView
+            style="@style/Helper"
+            android:text="@string/size_probe_help" />
     </LinearLayout>
 </ScrollView>

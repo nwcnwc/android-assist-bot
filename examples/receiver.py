@@ -10,6 +10,8 @@ or point the phone at a Grok Bot routine webhook instead.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
 import re
@@ -30,17 +32,39 @@ def load_payload(raw: bytes) -> dict:
     return {"_raw": text}
 
 
+def _int_field(text: str, name: str) -> int | None:
+    match = re.search(rf'"{name}"\s*:\s*(\d+)', text)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def _str_field(text: str, name: str) -> tuple[bool, str | None]:
+    match = re.search(rf'"{name}"\s*:\s*(null|"([^"\\]*)")', text)
+    if not match:
+        return False, None
+    if match.group(1) == "null":
+        return True, None
+    return True, match.group(2)
+
+
 def recover_truncated(text: str) -> dict:
     payload: dict = {"_recovered": True}
     found = False
-    match = re.search(r'"screenshot_b64_len"\s*:\s*(\d+)', text)
+    match = re.search(r'"probe"\s*:\s*(true|false)', text)
     if match:
-        payload["screenshot_b64_len"] = int(match.group(1))
+        payload["probe"] = match.group(1) == "true"
         found = True
-    match = re.search(r'"body_bytes"\s*:\s*(\d+)', text)
-    if match:
-        payload["body_bytes"] = int(match.group(1))
-        found = True
+    for name in ("probe_step", "probe_total", "screenshot_b64_len", "body_bytes"):
+        value = _int_field(text, name)
+        if value is not None:
+            payload[name] = value
+            found = True
+    for name in ("screenshot_b64_sha256", "probe_tail"):
+        present, value = _str_field(text, name)
+        if present:
+            payload[name] = value
+            found = True
     match = re.search(r'"screenshot_base64"\s*:\s*(null|"(.*))', text, re.S)
     if match:
         found = True
@@ -63,6 +87,48 @@ def shot_len(payload: dict) -> int:
 def is_truncated(payload: dict) -> bool:
     declared = payload.get("screenshot_b64_len")
     return isinstance(declared, int) and declared != shot_len(payload)
+
+
+def probe_check(payload: dict) -> tuple[dict, str] | None:
+    """Compare a size-probe post with the bytes this process actually read."""
+    if payload.get("probe") is not True:
+        return None
+    shot = payload.get("screenshot_base64")
+    received = shot if isinstance(shot, str) else ""
+    declared = payload.get("screenshot_b64_len")
+    tail = payload.get("probe_tail")
+    declared_sha = payload.get("screenshot_b64_sha256")
+    tail_present = "probe_tail" in payload
+    sha_present = "screenshot_b64_sha256" in payload
+    if received:
+        tail_match = tail_present and tail == received[-16:]
+        actual_sha = hashlib.sha256(received.encode("utf-8")).hexdigest()
+        sha_match = sha_present and isinstance(declared_sha, str) and declared_sha.lower() == actual_sha
+        try:
+            base64.b64decode(received, validate=True)
+            decodes = True
+        except Exception:
+            decodes = False
+    else:
+        tail_match = tail_present and tail is None
+        sha_match = sha_present and declared_sha is None
+        decodes = False
+    step = payload.get("probe_step")
+    total = payload.get("probe_total")
+    received_len = len(received)
+    fields = {
+        "probe_step": step,
+        "probe_total": total,
+        "received_len": received_len,
+        "tail_match": tail_match,
+        "sha256_match": sha_match,
+        "base64_decodes": decodes,
+    }
+    line = (
+        f"probe step {step}/{total} declared_len={declared} received_len={received_len} "
+        f"tail_match={tail_match} sha256_match={sha_match} base64_decodes={decodes}"
+    )
+    return fields, line
 
 
 def ask_llm(payload: dict) -> str | None:
@@ -124,7 +190,12 @@ class Handler(BaseHTTPRequestHandler):
         summary["screenshot_base64_chars"] = shot_len(payload)
         truncated = is_truncated(payload)
         summary["truncated"] = truncated
+        probe = probe_check(payload)
+        if probe is not None:
+            summary.update(probe[0])
         print(json.dumps(summary, indent=2))
+        if probe is not None:
+            print(probe[1])
         if truncated:
             print("truncated: len(screenshot_base64) != screenshot_b64_len")
         sys.stdout.flush()

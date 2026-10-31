@@ -130,7 +130,7 @@ class AskController(
                 Sender.writeJpeg(app, shot)
             } catch (error: Throwable) {
                 Diagnostics.log(app, "jpeg", error)
-                Sender.Shot(null, null)
+                if (Settings(app).sizeProbe) Sender.Shot(null, null, Sender.emptyProbe()) else Sender.Shot(null, null)
             }
             SendService.enqueue(
                 app,
@@ -142,6 +142,7 @@ class AskController(
                     chosen?.source,
                     prepared.file,
                     prepared.omitted,
+                    prepared.probe,
                 ),
             )
             main.post { closeSheet() }

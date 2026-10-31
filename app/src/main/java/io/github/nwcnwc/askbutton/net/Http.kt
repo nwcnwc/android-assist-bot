@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object Http {
     const val TIMEOUT_MS = 20_000
-    const val USER_AGENT = "AskButton/0.1.6"
+    const val USER_AGENT = "AskButton/0.1.7"
 
     data class Response(val code: Int, val body: String)
 

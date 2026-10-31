@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import io.github.nwcnwc.askbutton.diag.Diagnostics
 import io.github.nwcnwc.askbutton.logic.RequestText
+import io.github.nwcnwc.askbutton.logic.SizeProbe
 import io.github.nwcnwc.askbutton.notify.Notices
 import io.github.nwcnwc.askbutton.store.LastRequest
 import java.io.File
@@ -58,16 +59,14 @@ class SendService : Service() {
             val urlSource = intent?.getStringExtra(EXTRA_URL_SOURCE)
             val jpeg = intent?.getStringExtra(EXTRA_JPEG)?.let { File(it) }
             val omitted = intent?.getStringExtra(EXTRA_OMITTED)
+            val probe = readProbe(intent)
             val report = try {
-                Sender.report(this, question, jpeg, omitted, screen, url, urlSource)
+                Sender.report(this, question, jpeg, omitted, screen, url, urlSource, probe)
             } catch (error: Throwable) {
                 Diagnostics.log(this, "send failed", error)
                 Sender.Report(false, 0, RequestText.redact(error.message ?: "Couldn't send").take(180))
             } finally {
-                try {
-                    jpeg?.delete()
-                } catch (_: Exception) {
-                }
+                deleteShot(jpeg, probe)
             }
             LastRequest.save(this, report.ok, report.httpCode, report.detail)
             Notices.result(this, report)
@@ -105,6 +104,9 @@ class SendService : Service() {
         private const val EXTRA_URL_SOURCE = "url_source"
         private const val EXTRA_JPEG = "jpeg"
         private const val EXTRA_OMITTED = "omitted"
+        private const val EXTRA_PROBE = "size_probe"
+        private const val EXTRA_PROBE_JPEG = "probe_jpeg"
+        private const val EXTRA_PROBE_OMITTED = "probe_omitted"
 
         fun intent(
             context: Context,
@@ -114,14 +116,45 @@ class SendService : Service() {
             urlSource: String?,
             jpeg: File?,
             omitted: String?,
+            probe: List<Sender.ProbePart>? = null,
         ): Intent {
-            return Intent(context, SendService::class.java)
+            val intent = Intent(context, SendService::class.java)
                 .putExtra(EXTRA_QUESTION, question)
                 .putExtra(EXTRA_SCREEN, screenText)
                 .putExtra(EXTRA_URL, url)
                 .putExtra(EXTRA_URL_SOURCE, urlSource)
                 .putExtra(EXTRA_JPEG, jpeg?.absolutePath)
                 .putExtra(EXTRA_OMITTED, omitted)
+            if (probe != null) {
+                intent.putExtra(EXTRA_PROBE, true)
+                intent.putExtra(EXTRA_PROBE_JPEG, probe.map { it.file?.absolutePath.orEmpty() }.toTypedArray())
+                intent.putExtra(EXTRA_PROBE_OMITTED, probe.map { it.omitted.orEmpty() }.toTypedArray())
+            }
+            return intent
+        }
+
+        fun readProbe(intent: Intent?): List<Sender.ProbePart>? {
+            if (intent?.getBooleanExtra(EXTRA_PROBE, false) != true) return null
+            val paths = intent.getStringArrayExtra(EXTRA_PROBE_JPEG)
+            val omitted = intent.getStringArrayExtra(EXTRA_PROBE_OMITTED)
+            return List(SizeProbe.TOTAL) { index ->
+                val path = paths?.getOrNull(index)?.takeIf { it.isNotEmpty() }
+                val why = omitted?.getOrNull(index)?.takeIf { it.isNotEmpty() }
+                Sender.ProbePart(path?.let { File(it) }, why)
+            }
+        }
+
+        private fun deleteShot(jpeg: File?, probe: List<Sender.ProbePart>?) {
+            try {
+                jpeg?.delete()
+            } catch (_: Exception) {
+            }
+            probe?.forEach { part ->
+                try {
+                    part.file?.delete()
+                } catch (_: Exception) {
+                }
+            }
         }
 
         /** Start the service from a background thread so it cannot deadlock the UI. */
@@ -138,15 +171,13 @@ class SendService : Service() {
                     val urlSource = intent.getStringExtra(EXTRA_URL_SOURCE)
                     val jpeg = intent.getStringExtra(EXTRA_JPEG)?.let { File(it) }
                     val omitted = intent.getStringExtra(EXTRA_OMITTED)
+                    val probe = readProbe(intent)
                     val report = try {
-                        Sender.report(app, question, jpeg, omitted, screen, url, urlSource)
+                        Sender.report(app, question, jpeg, omitted, screen, url, urlSource, probe)
                     } catch (sendError: Throwable) {
                         Sender.Report(false, 0, RequestText.redact(sendError.message ?: "Couldn't send").take(180))
                     } finally {
-                        try {
-                            jpeg?.delete()
-                        } catch (_: Exception) {
-                        }
+                        deleteShot(jpeg, probe)
                     }
                     LastRequest.save(app, report.ok, report.httpCode, report.detail)
                     Notices.result(app, report)

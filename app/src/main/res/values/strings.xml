@@ -42,6 +42,10 @@
     <string name="how_body">Long-press the Home button. On stock Android with gesture navigation, you can also swipe in from a bottom corner when that gesture is turned on.\n\nSamsung One UI 7 has no corner swipe. Add the Ask Button Quick Settings tile, or long-press the app icon and tap Ask about this screen. A power button shortcut is optional.</string>
     <string name="setup_link_help">A bot can open androidassistbot://setup?webhook=…&amp;auth=… after install. A QR code of that link works with the camera app. auth is the Authorization header value, usually Bearer and the key. The link contains the secret.</string>
     <string name="log_label">Diagnostic log</string>
+    <string name="size_probe_label">Size probe (diagnostic)</string>
+    <string name="size_probe_help">Sends one screenshot six times at increasing size caps. Leave off unless you are measuring a cut-off body.</string>
+    <string name="size_probe_on">Size probe on</string>
+    <string name="size_probe_off">Size probe off</string>
 
     <string name="listening">Listening…</string>
     <string name="hearing">Hearing you…</string>

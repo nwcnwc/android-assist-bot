@@ -22,6 +22,13 @@ class Settings(context: Context) {
             plain.edit().putBoolean(KEY_INCLUDE_SHOT, value).apply()
         }
 
+    /** When true, one ask posts the same screenshot six times at rising size caps. Default is off. */
+    var sizeProbe: Boolean
+        get() = plain.getBoolean(KEY_SIZE_PROBE, false)
+        set(value) {
+            plain.edit().putBoolean(KEY_SIZE_PROBE, value).apply()
+        }
+
     fun dismissedClip(stamp: String) {
         plain.edit().putString(KEY_CLIP, stamp).apply()
     }
@@ -33,6 +40,7 @@ class Settings(context: Context) {
         const val KEY_WEBHOOK = "webhook"
         const val KEY_AUTH = "auth"
         const val KEY_INCLUDE_SHOT = "include_screenshot"
+        const val KEY_SIZE_PROBE = "size_probe"
         const val KEY_CLIP = "clip"
     }
 }
