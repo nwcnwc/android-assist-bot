@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:recognitionService="io.github.nwcnwc.askbutton.assistant.AssistRecognitionService"
+    android:sessionService="io.github.nwcnwc.askbutton.assistant.AssistSessionService"
+    android:settingsActivity="io.github.nwcnwc.askbutton.SettingsActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true" />
