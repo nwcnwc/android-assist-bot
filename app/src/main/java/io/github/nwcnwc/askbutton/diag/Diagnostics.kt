@@ -29,7 +29,7 @@ object Diagnostics {
             append(RequestText.redact(message).take(500))
             if (error != null) {
                 append('\n')
-                append(RequestText.redact(error.stackTraceToString()).take(2000))
+                append(RequestText.redact(trace(error)).take(2000))
             }
             append('\n')
         }
@@ -59,6 +59,13 @@ object Diagnostics {
     }
 
     private fun file(context: Context): File = File(context.applicationContext.filesDir, "askbutton.log")
+
+    private fun trace(error: Throwable): String {
+        if (error is StackOverflowError) {
+            return error.stackTrace.take(12).joinToString("\n") { it.toString() }
+        }
+        return error.stackTraceToString()
+    }
 
     private fun stamp(): String =
         SimpleDateFormat("MM-dd HH:mm:ss", Locale.US).format(Date())

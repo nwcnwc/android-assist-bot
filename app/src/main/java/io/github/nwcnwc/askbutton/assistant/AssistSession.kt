@@ -17,7 +17,7 @@ import io.github.nwcnwc.askbutton.net.Sender
 
 class AssistSession(context: Context) : VoiceInteractionSession(context) {
     private val parts = ArrayList<String>()
-    private val urls = ArrayList<String>()
+    private val foundUrls = ArrayList<String>()
     private var pageUrl: String? = null
     private var screenshot: Bitmap? = null
     private var controller: AskController? = null
@@ -46,7 +46,7 @@ class AssistSession(context: Context) : VoiceInteractionSession(context) {
             val source = object : AskController.Source {
                 override val screenshot: Bitmap? get() = this@AssistSession.screenshot
                 override val screenText: String get() = ScreenText.join(parts)
-                override val urls: List<String> get() = urls.toList()
+                override val urls: List<String> get() = foundUrls.toList()
                 override val pageUrl: String? get() = this@AssistSession.pageUrl
                 override fun ready(): Boolean = assistDone && shotDone
             }
@@ -100,7 +100,7 @@ class AssistSession(context: Context) : VoiceInteractionSession(context) {
                 val dump = AssistReaders.dump(structure)
                 parts.addAll(dump.parts)
                 for (url in dump.urls) {
-                    if (url !in urls) urls.add(url)
+                    if (url !in foundUrls) foundUrls.add(url)
                 }
             }
             if (state.index >= state.count - 1) assistDone = true

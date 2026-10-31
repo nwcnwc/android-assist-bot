@@ -10,6 +10,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import io.github.nwcnwc.askbutton.diag.Diagnostics
+import io.github.nwcnwc.askbutton.logic.CallbackGate
 import java.util.Locale
 
 /**
@@ -23,6 +24,7 @@ object SpeechHub {
     private var pendingDestroy: SpeechRecognizer? = null
     private var generation = 0
     private var inCallback = false
+    private val callbacks = CallbackGate()
     private var onDeviceBroken = false
     private var app: Context? = null
 
@@ -133,26 +135,28 @@ object SpeechHub {
         private val token: Int,
         private val listener: RecognitionListener,
     ) : RecognitionListener {
-        private fun run(block: () -> Unit) {
+        private fun dispatch(block: () -> Unit) {
             if (token != generation || recognizer == null) return
-            inCallback = true
-            try {
-                block()
-            } catch (error: Throwable) {
-                app?.let { Diagnostics.log(it, "speech callback", error) }
-            } finally {
-                inCallback = false
+            callbacks.dispatch {
+                inCallback = true
+                try {
+                    block()
+                } catch (error: Throwable) {
+                    app?.let { Diagnostics.log(it, "speech callback", error) }
+                } finally {
+                    inCallback = false
+                }
             }
         }
 
-        override fun onReadyForSpeech(params: Bundle?) = run { listener.onReadyForSpeech(params) }
-        override fun onBeginningOfSpeech() = run { listener.onBeginningOfSpeech() }
-        override fun onRmsChanged(rmsdB: Float) = run { listener.onRmsChanged(rmsdB) }
-        override fun onBufferReceived(buffer: ByteArray?) = run { listener.onBufferReceived(buffer) }
-        override fun onEndOfSpeech() = run { listener.onEndOfSpeech() }
-        override fun onError(error: Int) = run { listener.onError(error) }
-        override fun onResults(results: Bundle?) = run { listener.onResults(results) }
-        override fun onPartialResults(partialResults: Bundle?) = run { listener.onPartialResults(partialResults) }
-        override fun onEvent(eventType: Int, params: Bundle?) = run { listener.onEvent(eventType, params) }
+        override fun onReadyForSpeech(params: Bundle?) = dispatch { listener.onReadyForSpeech(params) }
+        override fun onBeginningOfSpeech() = dispatch { listener.onBeginningOfSpeech() }
+        override fun onRmsChanged(rmsdB: Float) = dispatch { listener.onRmsChanged(rmsdB) }
+        override fun onBufferReceived(buffer: ByteArray?) = dispatch { listener.onBufferReceived(buffer) }
+        override fun onEndOfSpeech() = dispatch { listener.onEndOfSpeech() }
+        override fun onError(error: Int) = dispatch { listener.onError(error) }
+        override fun onResults(results: Bundle?) = dispatch { listener.onResults(results) }
+        override fun onPartialResults(partialResults: Bundle?) = dispatch { listener.onPartialResults(partialResults) }
+        override fun onEvent(eventType: Int, params: Bundle?) = dispatch { listener.onEvent(eventType, params) }
     }
 }
