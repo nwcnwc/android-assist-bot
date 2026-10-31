@@ -16,6 +16,7 @@ import android.widget.EditText
 import android.widget.TextView
 import io.github.nwcnwc.askbutton.R
 import io.github.nwcnwc.askbutton.diag.Diagnostics
+import io.github.nwcnwc.askbutton.logic.Once
 import io.github.nwcnwc.askbutton.net.SendService
 import io.github.nwcnwc.askbutton.net.Sender
 import java.util.concurrent.atomic.AtomicBoolean
@@ -43,6 +44,7 @@ class AskController(
     private var userEdited = false
     private var sending = false
     private var queued = false
+    private val listenOnce = Once()
     private var baseBottom = -1
     private val startedAt = SystemClock.elapsedRealtime()
     private val layoutListener = ViewTreeObserver.OnGlobalLayoutListener { applyPad() }
@@ -67,6 +69,7 @@ class AskController(
             }
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
+        listenOnce.reset()
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             status.setText(R.string.mic_needed)
             return
@@ -152,7 +155,7 @@ class AskController(
         }
 
         override fun onError(error: Int) {
-            if (sending) return
+            if (sending || !listenOnce.take()) return
             status.setText(
                 when (error) {
                     android.speech.SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> R.string.mic_needed
@@ -165,6 +168,7 @@ class AskController(
         }
 
         override fun onResults(results: Bundle?) {
+            if (sending || !listenOnce.take()) return
             val text = results
                 ?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
@@ -178,7 +182,7 @@ class AskController(
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
-            if (userEdited || sending) return
+            if (userEdited || sending || listenOnce.taken()) return
             val text = partialResults
                 ?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
