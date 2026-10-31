@@ -24,15 +24,20 @@ object AssistReaders {
         return Dump(parts, WebUrls.urlsIn(parts))
     }
 
-    private fun walk(node: AssistStructure.ViewNode?, parts: MutableList<String>) {
-        if (node == null) return
-        node.text?.toString()?.let { parts.add(it) }
-        val description = node.contentDescription?.toString()
-        if (!description.isNullOrBlank()) parts.add(description)
-        val domain = node.webDomain
-        if (!domain.isNullOrBlank()) parts.add("domain: $domain")
-        for (i in 0 until node.childCount) {
-            walk(node.getChildAt(i), parts)
+    private fun walk(root: AssistStructure.ViewNode?, parts: MutableList<String>) {
+        if (root == null) return
+        val stack = ArrayDeque<AssistStructure.ViewNode>()
+        stack.addLast(root)
+        while (stack.isNotEmpty()) {
+            val node = stack.removeLast()
+            node.text?.toString()?.let { parts.add(it) }
+            val description = node.contentDescription?.toString()
+            if (!description.isNullOrBlank()) parts.add(description)
+            val domain = node.webDomain
+            if (!domain.isNullOrBlank()) parts.add("domain: $domain")
+            for (i in node.childCount - 1 downTo 0) {
+                node.getChildAt(i)?.let { stack.addLast(it) }
+            }
         }
     }
 }

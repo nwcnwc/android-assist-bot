@@ -67,7 +67,14 @@ class Handler(BaseHTTPRequestHandler):
             payload = {"_raw": raw.decode("utf-8", "replace")}
         summary = {
             key: payload.get(key)
-            for key in ("question", "url", "screen_text", "screenshot_mime", "screenshot_omitted")
+            for key in (
+                "question",
+                "url",
+                "url_source",
+                "screen_text",
+                "screenshot_mime",
+                "screenshot_omitted",
+            )
         }
         shot = payload.get("screenshot_base64")
         summary["screenshot_base64_chars"] = len(shot) if isinstance(shot, str) else 0

@@ -10,6 +10,7 @@ object Payload {
     fun json(
         question: String?,
         url: String?,
+        urlSource: String?,
         screenText: String?,
         screenshotBase64: String?,
         screenshotOmitted: String?,
@@ -26,6 +27,8 @@ object Payload {
             append(Json.literal(blankToNull(question)))
             append(",\"url\":")
             append(Json.literal(blankToNull(url)))
+            append(",\"url_source\":")
+            append(Json.literal(blankToNull(urlSource)))
             append(",\"screen_text\":")
             append(Json.literal(blankToNull(screenText)))
             append(",\"screenshot_base64\":")

@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object Http {
     const val TIMEOUT_MS = 20_000
-    const val USER_AGENT = "AskButton/0.1.4"
+    const val USER_AGENT = "AskButton/0.1.5"
 
     data class Response(val code: Int, val body: String)
 
@@ -105,7 +105,7 @@ object Http {
                 if (total > max) break
                 out.write(buf, 0, n)
             }
-            return out.toString(Charsets.UTF_8)
+            return String(out.toByteArray(), Charsets.UTF_8)
         }
     }
 

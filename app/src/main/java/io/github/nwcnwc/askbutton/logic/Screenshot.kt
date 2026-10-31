@@ -7,7 +7,7 @@ import java.util.Base64
  * [MAX_SCREENSHOT_B64_CHARS] is the only size cap.
  */
 object Screenshot {
-    const val MAX_SCREENSHOT_B64_CHARS = 300_000
+    const val MAX_SCREENSHOT_B64_CHARS = 700_000
     const val MIME = "image/jpeg"
     const val OMITTED_TOO_LARGE = "too_large"
 

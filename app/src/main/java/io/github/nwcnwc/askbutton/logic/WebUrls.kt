@@ -5,6 +5,16 @@ import java.net.URI
 object WebUrls {
     private val url = Regex("""https?://[^\s<>"']+""", RegexOption.IGNORE_CASE)
     private val trailing = charArrayOf('.', ',', ';', ':', '!', '?', ')', ']', '}', '>', '"', '\'')
+    private val xHost = Regex("""^(?:(?:www|mobile)\.)?(?:x|twitter)\.com$""", RegexOption.IGNORE_CASE)
+    private val statusId = Regex("""/status/(\d+)""", RegexOption.IGNORE_CASE)
+
+    /** Where [url] came from. [source] is [Choice.PAGE] or [Choice.SCREEN]. */
+    data class Choice(val url: String, val source: String) {
+        companion object {
+            const val PAGE = "page"
+            const val SCREEN = "screen"
+        }
+    }
 
     fun isHttpsUrl(value: String): Boolean {
         val trimmed = value.trim()
@@ -35,18 +45,49 @@ object WebUrls {
     }
 
     /**
-     * Page URL from the assistant, then the first on-screen URL,
-     * then the clipboard when the whole clip is a single link.
+     * Assistant page URL, otherwise the first on-screen URL.
+     * A stale x.com or twitter.com /status/ link (www. and mobile. included)
+     * yields to a different status link on the screen. Null when neither has a link.
+     * The clipboard is not read.
      */
-    fun choose(webUri: String?, textUrls: List<String>, clipboard: String?): String? {
-        firstHttpUrl(webUri)?.let { return it }
+    fun choose(webUri: String?, textUrls: List<String>): Choice? {
+        val page = firstHttpUrl(webUri)
+        val screen = ArrayList<String>(textUrls.size)
         for (candidate in textUrls) {
-            firstHttpUrl(candidate)?.let { return it }
+            firstHttpUrl(candidate)?.let { screen.add(it) }
         }
-        val clip = clipboard?.trim() ?: return null
-        if (clip.length > 2048) return null
-        val clipUrl = firstHttpUrl(clip) ?: return null
-        return if (clip == clipUrl) clipUrl else null
+        val pageStatus = page?.let { xStatusId(it) }
+        if (pageStatus != null && !mentionsId(textUrls, pageStatus)) {
+            val replacement = screen.firstOrNull { candidate ->
+                val id = xStatusId(candidate)
+                id != null && id != pageStatus
+            }
+            if (replacement != null) return Choice(replacement, Choice.SCREEN)
+        }
+        if (page != null) return Choice(page, Choice.PAGE)
+        val first = screen.firstOrNull() ?: return null
+        return Choice(first, Choice.SCREEN)
+    }
+
+    private fun xStatusId(value: String): String? {
+        val uri = try {
+            URI(value)
+        } catch (_: Exception) {
+            return null
+        }
+        val host = uri.host ?: return null
+        if (!xHost.matches(host)) return null
+        val path = uri.path ?: return null
+        return statusId.find(path)?.groupValues?.get(1)
+    }
+
+    /** True when [id] appears in a screen URL as its own number, not as a prefix of a longer id. */
+    private fun mentionsId(urls: List<String>, id: String): Boolean {
+        val pattern = Regex("(?<!\\d)${Regex.escape(id)}(?!\\d)")
+        for (candidate in urls) {
+            if (pattern.containsMatchIn(candidate)) return true
+        }
+        return false
     }
 
     private fun clean(raw: String): String? {
