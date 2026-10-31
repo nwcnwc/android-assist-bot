@@ -19,7 +19,7 @@ class HttpTest {
             200 to "{\"ok\":true}"
         }
         try {
-            val payload = Payload.json("hello", null, "on screen", "YQ==", null)
+            val payload = Payload.json("hello", null, null, "on screen", "YQ==", null)
             val response = Http.postJson(
                 "http://127.0.0.1:${server.port}/hook",
                 payload,
@@ -32,7 +32,7 @@ class HttpTest {
             assertEquals("Bearer test-key", request.headers["authorization"])
             assertEquals(Http.USER_AGENT, request.headers["user-agent"])
             assertTrue(request.headers["content-type"].orEmpty().startsWith("application/json"))
-            assertEquals(payload, request.body.toString(Charsets.UTF_8))
+            assertEquals(payload, String(request.body, Charsets.UTF_8))
             assertTrue(payload.contains("\"screenshot_base64\":\"YQ==\""))
             assertTrue(payload.contains("\"screenshot_mime\":\"image/jpeg\""))
         } finally {
@@ -118,7 +118,7 @@ class HttpTest {
                 break
             }
         }
-        val headerText = headerBytes.toString(Charsets.ISO_8859_1)
+        val headerText = String(headerBytes.toByteArray(), Charsets.ISO_8859_1)
         val lines = headerText.split("\r\n")
         val start = lines.first().split(" ")
         val headers = LinkedHashMap<String, String>()

@@ -1,7 +1,5 @@
 package io.github.nwcnwc.askbutton.net
 
-import android.content.ClipDescription
-import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Bitmap
 import io.github.nwcnwc.askbutton.diag.Diagnostics
@@ -23,27 +21,6 @@ object Sender {
         val omitted: String?,
     )
 
-    fun peekClipboard(context: Context): String? {
-        return try {
-            val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            if (!manager.hasPrimaryClip()) return null
-            val clip = manager.primaryClip ?: return null
-            if (clip.itemCount == 0) return null
-            val description = clip.description
-            if (description != null &&
-                !description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) &&
-                !description.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML) &&
-                description.getMimeType(0)?.startsWith("text/") != true
-            ) {
-                return null
-            }
-            clip.getItemAt(0).text?.toString()
-        } catch (error: Exception) {
-            Diagnostics.log(context, "clipboard", error)
-            null
-        }
-    }
-
     /** Encode while the session is still alive. A null bitmap means no picture. */
     fun writeJpeg(context: Context, bitmap: Bitmap?): Shot {
         if (!Settings(context).includeScreenshot) return Shot(null, null)
@@ -63,9 +40,8 @@ object Sender {
         jpegFile: File?,
         omitted: String?,
         screenText: String,
-        pageUrl: String?,
-        extraUrls: List<String>,
-        clipboard: String?,
+        url: String?,
+        urlSource: String?,
     ): Report {
         val settings = Settings(context)
         val webhook = settings.webhook
@@ -80,8 +56,7 @@ object Sender {
         }
         val shotNote = embedded.omitted ?: if (embedded.base64 == null) "none" else "inline"
         Diagnostics.log(context, "send start host=$host bytes=${jpegFile?.length() ?: 0} shot=$shotNote")
-        val url = WebUrls.choose(pageUrl, extraUrls, clipboard)
-        val json = Payload.json(question, url, screenText, embedded.base64, embedded.omitted)
+        val json = Payload.json(question, url, urlSource, screenText, embedded.base64, embedded.omitted)
         val headers = LinkedHashMap<String, String>()
         val auth = settings.authorization
         if (auth.isNotEmpty()) headers["Authorization"] = auth

@@ -205,7 +205,7 @@ class SettingsActivity : Activity() {
         try {
             SendService.enqueue(
                 app,
-                SendService.intent(app, "Test from Ask Button", "", null, arrayListOf(), null, null, null),
+                SendService.intent(app, "Test from Ask Button", "", null, null, null, null),
             )
             toast(getString(R.string.sending))
         } catch (error: Exception) {

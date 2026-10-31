@@ -10,24 +10,25 @@ import java.util.Base64
 class LogicTest {
     @Test
     fun payloadUsesExactKeysAndNulls() {
-        val json = Payload.json("  what is this? ", "https://example.com/a", "", null, null)
+        val json = Payload.json("  what is this? ", "https://example.com/a", "page", "", null, null)
         assertEquals(
-            "{\"question\":\"what is this?\",\"url\":\"https://example.com/a\",\"screen_text\":null,\"screenshot_base64\":null,\"screenshot_mime\":null,\"screenshot_omitted\":null}",
+            "{\"question\":\"what is this?\",\"url\":\"https://example.com/a\",\"url_source\":\"page\",\"screen_text\":null,\"screenshot_base64\":null,\"screenshot_mime\":null,\"screenshot_omitted\":null}",
             json,
         )
         val parsed = Json.parse(json) as Jv.Obj
         assertEquals(
-            listOf("question", "url", "screen_text", "screenshot_base64", "screenshot_mime", "screenshot_omitted"),
+            listOf("question", "url", "url_source", "screen_text", "screenshot_base64", "screenshot_mime", "screenshot_omitted"),
             parsed.map.keys.toList(),
         )
     }
 
     @Test
     fun payloadEscapesTextAndMarksTheJpeg() {
-        val json = Payload.json("say \"hi\"\nnext\\", null, "line\tend", "abc+/=", null)
+        val json = Payload.json("say \"hi\"\nnext\\", null, "  ", "line\tend", "abc+/=", null)
         val parsed = Json.parse(json) as Jv.Obj
         assertEquals("say \"hi\"\nnext\\", (parsed.map["question"] as Jv.Str).value)
         assertEquals(Jv.Null, parsed.map["url"])
+        assertEquals(Jv.Null, parsed.map["url_source"])
         assertEquals("line\tend", (parsed.map["screen_text"] as Jv.Str).value)
         assertEquals("abc+/=", (parsed.map["screenshot_base64"] as Jv.Str).value)
         assertEquals("image/jpeg", (parsed.map["screenshot_mime"] as Jv.Str).value)
@@ -36,7 +37,7 @@ class LogicTest {
 
     @Test
     fun payloadOmitsAScreenshotThatIsTooLarge() {
-        val json = Payload.json("q", null, null, "   ", "too_large")
+        val json = Payload.json("q", null, null, null, "   ", "too_large")
         val parsed = Json.parse(json) as Jv.Obj
         assertEquals(Jv.Null, parsed.map["screenshot_base64"])
         assertEquals(Jv.Null, parsed.map["screenshot_mime"])
@@ -45,7 +46,7 @@ class LogicTest {
 
     @Test
     fun payloadKeepsThePictureWhenBothFieldsAreSet() {
-        val json = Payload.json("q", null, null, "YQ==", "too_large")
+        val json = Payload.json("q", null, null, null, "YQ==", "too_large")
         val parsed = Json.parse(json) as Jv.Obj
         assertEquals("YQ==", (parsed.map["screenshot_base64"] as Jv.Str).value)
         assertEquals("image/jpeg", (parsed.map["screenshot_mime"] as Jv.Str).value)
@@ -68,20 +69,86 @@ class LogicTest {
     }
 
     @Test
-    fun urlChoicePrefersPageThenTextThenWholeClipboard() {
-        assertEquals(
+    fun urlChoicePrefersPageThenScreen() {
+        val page = WebUrls.choose("https://example.com/reel", listOf("https://ads.example/x"))
+        assertEquals("https://example.com/reel", page?.url)
+        assertEquals("page", page?.source)
+        val screen = WebUrls.choose(null, listOf("https://ads.example/x."))
+        assertEquals("https://ads.example/x", screen?.url)
+        assertEquals("screen", screen?.source)
+        val first = WebUrls.choose("not a url", listOf("https://a.example/1", "https://b.example/2"))
+        assertEquals("https://a.example/1", first?.url)
+        assertEquals("screen", first?.source)
+        assertNull(WebUrls.choose(null, emptyList()))
+        assertNull(WebUrls.choose("notes only", listOf("still notes")))
+    }
+
+    @Test
+    fun staleXStatusYieldsToADifferentStatusOnScreen() {
+        val stale = WebUrls.choose(
+            "https://x.com/alice/status/111",
+            listOf("https://ads.example/x", "https://twitter.com/bob/status/222"),
+        )
+        assertEquals("https://twitter.com/bob/status/222", stale?.url)
+        assertEquals("screen", stale?.source)
+
+        val mobile = WebUrls.choose(
+            "https://mobile.twitter.com/alice/status/111?s=20",
+            listOf("https://www.x.com/bob/status/333"),
+        )
+        assertEquals("https://www.x.com/bob/status/333", mobile?.url)
+        assertEquals("screen", mobile?.source)
+
+        val webPath = WebUrls.choose(
+            "https://www.twitter.com/i/web/status/111",
+            listOf("https://mobile.x.com/bob/status/444/photo/1"),
+        )
+        assertEquals("https://mobile.x.com/bob/status/444/photo/1", webPath?.url)
+        assertEquals("screen", webPath?.source)
+
+        val same = WebUrls.choose(
+            "https://twitter.com/alice/status/111",
+            listOf("https://mobile.x.com/alice/status/111"),
+        )
+        assertEquals("https://twitter.com/alice/status/111", same?.url)
+        assertEquals("page", same?.source)
+
+        val idOnScreen = WebUrls.choose(
+            "https://x.com/alice/status/111",
+            listOf("https://example.com/q?ref=111", "https://x.com/bob/status/222"),
+        )
+        assertEquals("https://x.com/alice/status/111", idOnScreen?.url)
+        assertEquals("page", idOnScreen?.source)
+
+        val noOtherStatus = WebUrls.choose(
+            "https://x.com/alice/status/111",
+            listOf("https://example.com/other"),
+        )
+        assertEquals("https://x.com/alice/status/111", noOtherStatus?.url)
+        assertEquals("page", noOtherStatus?.source)
+
+        val notStatus = WebUrls.choose(
             "https://example.com/reel",
-            WebUrls.choose("https://example.com/reel", listOf("https://ads.example/x"), "https://stale.example/old"),
+            listOf("https://x.com/bob/status/222"),
         )
-        assertEquals(
-            "https://ads.example/x",
-            WebUrls.choose(null, listOf("https://ads.example/x."), null),
+        assertEquals("https://example.com/reel", notStatus?.url)
+        assertEquals("page", notStatus?.source)
+
+        val longerId = WebUrls.choose(
+            "https://x.com/alice/status/111",
+            listOf("https://x.com/bob/status/1110"),
         )
-        assertEquals(
-            "https://copied.example/p",
-            WebUrls.choose(null, emptyList(), "https://copied.example/p"),
-        )
-        assertNull(WebUrls.choose(null, emptyList(), "notes https://copied.example/p and more"))
+        assertEquals("https://x.com/bob/status/1110", longerId?.url)
+        assertEquals("screen", longerId?.source)
+
+        val chosen = WebUrls.choose(
+            "https://x.com/old/status/111",
+            listOf("https://x.com/new/status/222"),
+        )!!
+        val json = Payload.json("q", chosen.url, chosen.source, null, null, null)
+        val parsed = Json.parse(json) as Jv.Obj
+        assertEquals("https://x.com/new/status/222", (parsed.map["url"] as Jv.Str).value)
+        assertEquals("screen", (parsed.map["url_source"] as Jv.Str).value)
     }
 
     @Test
@@ -104,7 +171,7 @@ class LogicTest {
 
     @Test
     fun screenshotLadderStopsWhenTheBase64Fits() {
-        assertEquals(300_000, Screenshot.MAX_SCREENSHOT_B64_CHARS)
+        assertEquals(700_000, Screenshot.MAX_SCREENSHOT_B64_CHARS)
         assertEquals(0, Screenshot.MAX_SCREENSHOT_B64_CHARS % 4)
         assertEquals(
             listOf(1280 to 70, 1024 to 60, 800 to 55, 640 to 50),

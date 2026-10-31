@@ -17,6 +17,7 @@ import android.widget.TextView
 import io.github.nwcnwc.askbutton.R
 import io.github.nwcnwc.askbutton.diag.Diagnostics
 import io.github.nwcnwc.askbutton.logic.Once
+import io.github.nwcnwc.askbutton.logic.WebUrls
 import io.github.nwcnwc.askbutton.net.SendService
 import io.github.nwcnwc.askbutton.net.Sender
 import io.github.nwcnwc.askbutton.store.Settings
@@ -113,9 +114,7 @@ class AskController(
         status.setText(R.string.sending)
         val questionText = question.text?.toString().orEmpty()
         val screenText = source.screenText
-        val pageUrl = source.pageUrl
-        val urls = ArrayList(source.urls)
-        val clipboard = Sender.peekClipboard(context)
+        val chosen = WebUrls.choose(source.pageUrl, ArrayList(source.urls))
         SpeechHub.stop()
         val app = context.applicationContext
         val closed = AtomicBoolean(false)
@@ -139,9 +138,8 @@ class AskController(
                     app,
                     questionText,
                     screenText,
-                    pageUrl,
-                    urls,
-                    clipboard,
+                    chosen?.url,
+                    chosen?.source,
                     prepared.file,
                     prepared.omitted,
                 ),
