@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_stat"
+        android:shortcutId="ask"
+        android:shortcutLongLabel="@string/shortcut_long"
+        android:shortcutShortLabel="@string/shortcut_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="io.github.nwcnwc.askbutton.capture.CaptureActivity"
+            android:targetPackage="io.github.nwcnwc.askbutton" />
+    </shortcut>
+</shortcuts>

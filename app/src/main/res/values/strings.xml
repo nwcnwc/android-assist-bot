@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ask Button</string>
+    <string name="tile_label">Ask Button</string>
+    <string name="shortcut_short">Ask</string>
+    <string name="shortcut_long">Ask about this screen</string>
+
+    <string name="tagline">Hold the assistant gesture on any screen, ask out loud, and the screenshot goes to your bot.</string>
+    <string name="webhook_label">Webhook URL</string>
+    <string name="webhook_hint">https://…</string>
+    <string name="auth_label">Authorization header</string>
+    <string name="auth_hint">Bearer …</string>
+    <string name="imgbb_label">ImgBB API key</string>
+    <string name="imgbb_hint">Optional, from api.imgbb.com</string>
+    <string name="upload_label">Custom image host</string>
+    <string name="upload_hint">https://… used when the ImgBB key is empty</string>
+    <string name="upload_help">The screenshot is uploaded first. The webhook gets a temporary https link, not the image bytes. ImgBB links expire after 6 hours. A custom host receives a JPEG field named image and returns an https URL.</string>
+    <string name="save">Save</string>
+    <string name="saved">Saved</string>
+    <string name="saved_host">Saved webhook for %1$s</string>
+    <string name="test">Send a test</string>
+    <string name="show">Show</string>
+    <string name="hide">Hide</string>
+    <string name="webhook_https">Webhook must be an https URL.</string>
+    <string name="upload_https">Image host must be an https URL.</string>
+    <string name="store_failed">Couldn\'t store the secret on this phone.</string>
+    <string name="clipboard_title">Save webhook from clipboard?</string>
+    <string name="clipboard_body">This link updates Ask Button.</string>
+    <string name="not_now">Not now</string>
+
+    <string name="assistant_on">Ask Button is the digital assistant.</string>
+    <string name="assistant_off">Ask Button is not the digital assistant yet.</string>
+    <string name="assistant_set">Set as digital assistant</string>
+    <string name="assistant_manage">Open default apps</string>
+    <string name="assistant_missing">This phone has no digital assistant slot. Use the Quick Settings tile.</string>
+    <string name="mic_allow">Allow microphone</string>
+    <string name="mic_allowed">Microphone allowed</string>
+    <string name="notes_allow">Allow notifications</string>
+    <string name="notes_allowed">Notifications allowed</string>
+    <string name="how_title">How to invoke it</string>
+    <string name="how_body">Stock Android: Settings, Apps, Default apps, Digital assistant app, Ask Button. Then long-press Home, or swipe in from a bottom corner if that gesture is available.\n\nSamsung One UI: Settings, Apps, Default apps (or Choose default apps), Digital assistant app. Long-press Home if you use buttons. One UI 7 has no corner swipe. Add the Ask Button Quick Settings tile, or long-press the app icon and tap Ask about this screen.\n\nA power-button shortcut is optional. The app does not need one.</string>
+    <string name="setup_link_help">A bot can open androidassistbot://setup?webhook=…&amp;auth=… after install. A QR code of that link works with the camera app. auth is the Authorization header value, usually Bearer and the key.</string>
+
+    <string name="listening">Listening…</string>
+    <string name="hearing">Hearing you…</string>
+    <string name="recognizing">Got it…</string>
+    <string name="sending">Sending…</string>
+    <string name="waiting_screen">Reading the screen…</string>
+    <string name="sent">Sent</string>
+    <string name="sent_without_image">Sent. %1$s</string>
+    <string name="question_hint">Or type a question. Send can be empty.</string>
+    <string name="send">Send</string>
+    <string name="cancel">Cancel</string>
+    <string name="mic_needed">Allow the microphone in Ask Button, or type your question.</string>
+    <string name="voice_unavailable">Voice isn\'t available. Type your question.</string>
+    <string name="voice_offline">On-device voice failed. Type your question.</string>
+    <string name="voice_try_typing">Didn\'t catch that. Type your question, or send the screen.</string>
+</resources>
