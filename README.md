@@ -2,6 +2,8 @@
 
 Ask Button is a small Android app that does what [Everest](https://x.com/everestchris6)'s iPhone [Action Button Bot](https://x.ai/bot/yc8yWwlDJLRwr0JuyHRhA) does, on any phone. Hold the assistant gesture on a reel, video, or page, ask out loud, and the app posts the question, the link, the on-screen text, and a screenshot to a [Grok Bot](https://docs.x.ai/grok-bot/skills-routines-and-automations) routine webhook. The bot answers in its own chat. The Grok Bot app delivers that as its own push notification. This app does not read the webhook response.
 
+**Get the bot:** [Android Assist Bot template](https://x.ai/bot/W6l-OpRBxwYQMGtjh3Wze) sets up the Grok Bot side and sends you the install and setup links.
+
 Version 0.1.5, min SDK 29. It has no Compose, Hilt, OkHttp, or ML Kit. Release builds use R8 and resource shrinking. The ask sheet sits above the navigation bar and the keyboard. Sending continues in a short foreground service after the sheet closes, and Settings shows the last HTTP result. A diagnostic log is under Advanced.
 
 Install:
