@@ -4,7 +4,7 @@ Ask Button is a small Android app that does what [Everest](https://x.com/everest
 
 **Get the bot:** [Android Assist Bot template](https://x.ai/bot/W6l-OpRBxwYQMGtjh3Wze) sets up the Grok Bot side and sends you the install and setup links.
 
-Version 0.1.6, min SDK 29. It has no Compose, Hilt, OkHttp, or ML Kit. Release builds use R8 and resource shrinking. The ask sheet sits above the navigation bar and the keyboard. Sending continues in a short foreground service after the sheet closes, and Settings shows the last HTTP result. A diagnostic log is under Advanced.
+Version 0.1.7, min SDK 29. It has no Compose, Hilt, OkHttp, or ML Kit. Release builds use R8 and resource shrinking. The ask sheet sits above the navigation bar and the keyboard. Sending continues in a short foreground service after the sheet closes, and Settings shows the last HTTP result. A diagnostic log is under Advanced.
 
 Install:
 
@@ -131,9 +131,21 @@ Turn **Include screenshot** off and the app does not capture or send a picture. 
 
 Screenshots and screen text go only to your own Grok Bot webhook, never to a third party. On-screen text can include whatever the page was showing. The webhook URL and the Authorization header stay on the device, encrypted with an Android Keystore AES-GCM key.
 
+## Size probe
+
+Off unless you turn it on. The **Size probe (diagnostic)** switch is at the bottom of Settings. A computer can set it without tapping:
+
+```bash
+adb shell am start -n io.github.nwcnwc.askbutton/.SettingsActivity --ez size_probe true
+```
+
+`--ez size_probe false` turns it off.
+
+One ask then sends the same screenshot as six posts, about one second apart, when **Include screenshot** is on. The base64 caps are 2000, 4000, 8000, 16000, 32000, and 64000 characters. Each post is a normal payload plus `probe` (`true`), `probe_step` (0 through 5), `probe_total` (6), `screenshot_b64_sha256` (lowercase hex SHA-256 of the base64 text), and `probe_tail` (the last 16 characters of that text). `probe_tail` is immediately before `screenshot_base64`, which stays last. For each cap the phone starts again from the original screenshot, shrinks the long side, and lowers JPEG quality until the base64 fits. The smallest width is about 32 pixels. The Advanced log records `probe step`, `b64_len`, `body_bytes`, and `http` for each post. Turn the probe off for a normal ask: one post, the usual ladder, and no probe fields.
+
 ## Example receiver
 
-`examples/receiver.py` is a stdlib webhook that prints the payload. It prints `screenshot_b64_len`, `body_bytes`, and the length of `screenshot_base64` instead of the image, and it flags truncation when those two lengths differ. With `XAI_API_KEY` set it also calls the xAI chat API. Ask Button refuses non-https URLs, so put the script behind TLS (Caddy, ngrok, or cloudflared) when you point a phone at it. The Grok Bot routine is the path that needs no extra server.
+`examples/receiver.py` is a stdlib webhook that prints the payload. It prints `screenshot_b64_len`, `body_bytes`, and the length of `screenshot_base64` instead of the image, and it flags truncation when those two lengths differ. When `probe` is true it also prints the step, the declared base64 length against the length it received, whether the tail and the SHA-256 match, and whether the base64 decodes. Those checks still print when the body was cut, because the probe fields sit before the picture. With `XAI_API_KEY` set it also calls the xAI chat API. Ask Button refuses non-https URLs, so put the script behind TLS (Caddy, ngrok, or cloudflared) when you point a phone at it. The Grok Bot routine is the path that needs no extra server.
 
 ```bash
 python3 examples/receiver.py

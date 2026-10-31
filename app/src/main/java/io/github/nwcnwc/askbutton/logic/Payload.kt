@@ -9,8 +9,14 @@ package io.github.nwcnwc.askbutton.logic
  * body_bytes is the UTF-8 byte length of this JSON, including the digits of body_bytes.
  * A picture sets screenshot_base64 and screenshot_mime. screenshot_omitted is
  * "too_large" only when every compressed size was still over the cap.
+ *
+ * A size-probe post adds probe, probe_step, probe_total, screenshot_b64_sha256,
+ * and probe_tail. probe_tail is the field immediately before screenshot_base64.
+ * A normal ask passes a null probe and those keys are absent.
  */
 object Payload {
+    data class Probe(val step: Int, val total: Int)
+
     fun json(
         question: String?,
         url: String?,
@@ -18,6 +24,7 @@ object Payload {
         screenText: String?,
         screenshotBase64: String?,
         screenshotOmitted: String?,
+        probe: Probe? = null,
     ): String {
         val shot = blankToNull(screenshotBase64)
         val omitted = if (shot == null && blankToNull(screenshotOmitted) == Screenshot.OMITTED_TOO_LARGE) {
@@ -40,11 +47,24 @@ object Payload {
             append(Json.literal(mime))
             append(",\"screenshot_omitted\":")
             append(Json.literal(omitted))
+            if (probe != null) {
+                append(",\"probe\":true")
+                append(",\"probe_step\":")
+                append(probe.step)
+                append(",\"probe_total\":")
+                append(probe.total)
+            }
             append(",\"screenshot_b64_len\":")
             append(b64Len)
             append(",\"body_bytes\":")
         }
-        val suffix = buildString((shot?.length ?: 0) + 32) {
+        val suffix = buildString((shot?.length ?: 0) + 128) {
+            if (probe != null) {
+                append(",\"screenshot_b64_sha256\":")
+                append(Json.literal(SizeProbe.sha256Hex(shot)))
+                append(",\"probe_tail\":")
+                append(Json.literal(SizeProbe.tail(shot)))
+            }
             append(",\"screenshot_base64\":")
             append(Json.literal(shot))
             append('}')

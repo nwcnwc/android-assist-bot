@@ -24,6 +24,7 @@ import io.github.nwcnwc.askbutton.diag.Diagnostics
 import io.github.nwcnwc.askbutton.logic.SetupLink
 import io.github.nwcnwc.askbutton.logic.WebUrls
 import io.github.nwcnwc.askbutton.net.SendService
+import io.github.nwcnwc.askbutton.net.Sender
 import io.github.nwcnwc.askbutton.notify.Notices
 import io.github.nwcnwc.askbutton.store.LastRequest
 import io.github.nwcnwc.askbutton.store.Settings
@@ -33,6 +34,7 @@ class SettingsActivity : Activity() {
     private lateinit var webhook: EditText
     private lateinit var auth: EditText
     private lateinit var includeScreenshot: Switch
+    private lateinit var sizeProbe: Switch
     private lateinit var assistantButton: Button
     private lateinit var micButton: Button
     private lateinit var noteButton: Button
@@ -54,6 +56,7 @@ class SettingsActivity : Activity() {
         webhook = findViewById(R.id.webhook)
         auth = findViewById(R.id.auth)
         includeScreenshot = findViewById(R.id.include_screenshot)
+        sizeProbe = findViewById(R.id.size_probe)
         assistantButton = findViewById(R.id.assistant_button)
         checklist = findViewById(R.id.checklist)
         lastRequest = findViewById(R.id.last_request)
@@ -79,7 +82,15 @@ class SettingsActivity : Activity() {
                 toast(getString(R.string.store_failed))
             }
         }
+        sizeProbe.setOnCheckedChangeListener { _, checked ->
+            try {
+                Settings(this).sizeProbe = checked
+            } catch (_: Exception) {
+                toast(getString(R.string.store_failed))
+            }
+        }
         val appliedLink = handleIntent(intent)
+        applyProbeExtra(intent)
         maybeRequestPermissions()
         if (!appliedLink) maybeClipboard()
     }
@@ -88,6 +99,7 @@ class SettingsActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleIntent(intent)
+        applyProbeExtra(intent)
     }
 
     override fun onResume() {
@@ -184,6 +196,7 @@ class SettingsActivity : Activity() {
             settings.webhook = webhookText
             settings.authorization = auth.text.toString()
             settings.includeScreenshot = includeScreenshot.isChecked
+            settings.sizeProbe = sizeProbe.isChecked
             refreshStatus()
             true
         } catch (_: Exception) {
@@ -197,15 +210,17 @@ class SettingsActivity : Activity() {
         webhook.setText(settings.webhook)
         auth.setText(settings.authorization)
         includeScreenshot.isChecked = settings.includeScreenshot
+        sizeProbe.isChecked = settings.sizeProbe
     }
 
     private fun testSend() {
         if (!saveFromFields()) return
         val app = applicationContext
         try {
+            val probe = if (Settings(app).sizeProbe) Sender.emptyProbe() else null
             SendService.enqueue(
                 app,
-                SendService.intent(app, "Test from Ask Button", "", null, null, null, null),
+                SendService.intent(app, "Test from Ask Button", "", null, null, null, null, probe),
             )
             toast(getString(R.string.sending))
         } catch (error: Exception) {
@@ -296,6 +311,20 @@ class SettingsActivity : Activity() {
         requestPermissions(arrayOf(permission), REQUEST_PERMS)
     }
 
+    /** adb shell am start -n <pkg>/.SettingsActivity --ez size_probe true */
+    private fun applyProbeExtra(incoming: Intent?) {
+        if (incoming == null || !incoming.hasExtra(EXTRA_SIZE_PROBE)) return
+        val enabled = incoming.getBooleanExtra(EXTRA_SIZE_PROBE, false)
+        incoming.removeExtra(EXTRA_SIZE_PROBE)
+        try {
+            Settings(this).sizeProbe = enabled
+            sizeProbe.isChecked = enabled
+            toast(if (enabled) getString(R.string.size_probe_on) else getString(R.string.size_probe_off))
+        } catch (_: Exception) {
+            toast(getString(R.string.store_failed))
+        }
+    }
+
     private fun readClipboard(): String? {
         return try {
             val manager = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
@@ -322,5 +351,6 @@ class SettingsActivity : Activity() {
     private companion object {
         const val REQUEST_ROLE = 3
         const val REQUEST_PERMS = 4
+        const val EXTRA_SIZE_PROBE = "size_probe"
     }
 }

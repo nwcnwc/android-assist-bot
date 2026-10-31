@@ -45,14 +45,19 @@ object Screenshot {
 
     /**
      * [encodeJpeg] scales so the long side is at most [Step.maxEdge] and encodes at [Step.quality].
-     * The first result whose base64 fits is kept. If none fit, the screenshot is omitted.
+     * The first result whose base64 fits [maxChars] is kept. If none fit, the screenshot is omitted.
+     * Defaults are the normal ask: [STEPS] and [MAX_SCREENSHOT_B64_CHARS].
      */
-    fun embed(encodeJpeg: (maxEdge: Int, quality: Int) -> ByteArray): Embedded {
-        for (step in STEPS) {
+    fun embed(
+        steps: List<Step> = STEPS,
+        maxChars: Int = MAX_SCREENSHOT_B64_CHARS,
+        encodeJpeg: (maxEdge: Int, quality: Int) -> ByteArray,
+    ): Embedded {
+        for (step in steps) {
             val jpeg = encodeJpeg(step.maxEdge, step.quality)
             if (jpeg.isEmpty()) continue
             val encoded = base64(jpeg)
-            if (encoded.length <= MAX_SCREENSHOT_B64_CHARS) {
+            if (encoded.length <= maxChars) {
                 return Embedded.included(jpeg, encoded)
             }
         }
