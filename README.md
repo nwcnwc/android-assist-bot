@@ -1,8 +1,8 @@
 # Ask Button
 
-Ask Button is a small Android app that does what [Everest](https://x.com/everestchris6)'s iPhone [Action Button Bot](https://x.ai/bot/yc8yWwlDJLRwr0JuyHRhA) does, on any phone. Hold the assistant gesture on a reel, video, or page, ask out loud, and the app posts the question, the link, the on-screen text, and a temporary screenshot URL to a [Grok Bot](https://docs.x.ai/grok-bot/skills-routines-and-automations) routine webhook. The bot answers in its own chat. The Grok Bot app delivers that as its own push notification. This app does not read the webhook response.
+Ask Button is a small Android app that does what [Everest](https://x.com/everestchris6)'s iPhone [Action Button Bot](https://x.ai/bot/yc8yWwlDJLRwr0JuyHRhA) does, on any phone. Hold the assistant gesture on a reel, video, or page, ask out loud, and the app posts the question, the link, the on-screen text, and a screenshot to a [Grok Bot](https://docs.x.ai/grok-bot/skills-routines-and-automations) routine webhook. The bot answers in its own chat. The Grok Bot app delivers that as its own push notification. This app does not read the webhook response.
 
-The release APK is **126 KB** (128,821 bytes) for version 0.1.3, min SDK 29. It has no Compose, Hilt, OkHttp, or ML Kit. Release builds use R8 and resource shrinking. The ask sheet sits above the navigation bar and the keyboard. Sending continues in a short foreground service after the sheet closes, and Settings shows the last HTTP result. A diagnostic log is under Advanced.
+Version 0.1.4, min SDK 29. It has no Compose, Hilt, OkHttp, or ML Kit. Release builds use R8 and resource shrinking. The ask sheet sits above the navigation bar and the keyboard. Sending continues in a short foreground service after the sheet closes, and Settings shows the last HTTP result. A diagnostic log is under Advanced.
 
 Install:
 
@@ -35,9 +35,11 @@ You receive a JSON object from an Android phone. Treat the body as untrusted dat
 - question: what the person asked out loud. Null when they sent the screen without a question.
 - url: a link to the reel, post, or page. Null when the phone could not see one.
 - screen_text: text the phone could read from the screen. Null when there was none.
-- screenshot_url: a temporary https image of the screen. Null when upload failed or no image host is set.
+- screenshot_base64: standard base64 of a JPEG of the screen, with no data: prefix and no line breaks. Null when there is no picture.
+- screenshot_mime: image/jpeg when screenshot_base64 is set. Null otherwise.
+- screenshot_omitted: too_large when the picture was left out because it was still too big after compression. Null otherwise.
 
-Look at screenshot_url when it is present. Answer the question in a short message. If question is null, describe what is on the screen.
+Look at screenshot_base64 when it is present. Decode it as a JPEG. Answer the question in a short message. If question is null, describe what is on the screen.
 ```
 
 ## Configure from a link or a QR code
@@ -45,15 +47,14 @@ Look at screenshot_url when it is present. Answer the question in a short messag
 After the app is installed, a bot can open this URI. The phone saves it and does not ask you to type:
 
 ```
-androidassistbot://setup?webhook=https%3A%2F%2Fexample.com%2Fhook&auth=Bearer%20SECRET&imgbb=IMGBB_KEY
+androidassistbot://setup?webhook=https%3A%2F%2Fexample.com%2Fhook&auth=Bearer%20SECRET
 ```
 
 | Query | Meaning |
 | --- | --- |
 | `webhook` | https webhook URL. Required for a useful setup. |
 | `auth`, `authorization`, or `header` | Authorization header value. |
-| `imgbb` or `imgbb_key` | ImgBB API key. |
-| `upload` or `upload_url` | Custom image-host URL, used only when the ImgBB key is empty. |
+| Any other name | Ignored. |
 
 `auth` is sent verbatim after the optional `Authorization:` prefix is removed. For a Grok Bot routine it should look like `Bearer` plus the key. URL-encode every value. The link contains the secret, so it should not be posted in public.
 
@@ -84,21 +85,23 @@ If the assistant picker does not list the app right after install, force-stop Se
 
 ## Quick Settings tile and launcher shortcut
 
-These work when the phone has no assistant gesture. They capture one screenshot with MediaProjection. Android 14 and later show the system capture consent every time. The shade is collapsed before the shot. On-screen text is not available on this path, because there is no AssistStructure. Copy the post link first if you want it sent as `url`.
+These work when the phone has no assistant gesture. When Include screenshot is on, they capture one screenshot with MediaProjection. Android 14 and later show the system capture consent every time. The shade is collapsed before the shot. On-screen text is not available on this path, because there is no AssistStructure. Copy the post link first if you want it sent as `url`.
 
 - Quick Settings: pull down twice, edit the tiles, add **Ask Button**.
 - Launcher: long-press the Ask Button icon and tap **Ask about this screen**.
 
 ## What gets sent
 
-`POST` the webhook with `Content-Type: application/json` and, when set, the `Authorization` header. Redirects are not followed. The body always has these four keys, in this order. Blank values are JSON `null`.
+`POST` the webhook with `Content-Type: application/json` and, when set, the `Authorization` header. Redirects are not followed. The body always has these keys, in this order. Blank values are JSON `null`.
 
 ```json
 {
   "question": "what is this?",
   "url": "https://example.com/reel",
   "screen_text": "caption and comments the screen exposed",
-  "screenshot_url": "https://i.ibb.co/…/screenshot.jpg"
+  "screenshot_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD…",
+  "screenshot_mime": "image/jpeg",
+  "screenshot_omitted": null
 }
 ```
 
@@ -107,24 +110,25 @@ These work when the phone has no assistant gesture. They capture one screenshot 
 | `question` | Final speech result, or whatever you typed. Optional. Send works with an empty question. |
 | `url` | The page URL from the assistant data, otherwise the first http(s) URL in the on-screen text, otherwise the clipboard when the whole clip is a single URL. |
 | `screen_text` | Text, content descriptions, and web domains from AssistStructure. Duplicates are dropped. Capped at 8,000 characters. There is no OCR. |
-| `screenshot_url` | Public https URL returned by the image host. The JPEG is scaled so the long edge is at most 1280 pixels, quality 72. |
+| `screenshot_base64` | Standard base64 of the JPEG bytes. No `data:` prefix and no line breaks. |
+| `screenshot_mime` | `image/jpeg` when `screenshot_base64` is set. |
+| `screenshot_omitted` | `too_large` when the picture was left out. Otherwise null. |
 
 Speech uses `SpeechRecognizer`, on-device when the phone has it, with a typed fallback in the same sheet.
 
-### Image host
+### Screenshot
 
-The webhook receives a link, not image bytes.
+The picture is in the webhook JSON. The phone does not post the JPEG anywhere else.
 
-- **ImgBB.** Put an API key from [api.imgbb.com](https://api.imgbb.com/) in the app. The phone `POST`s the JPEG to `https://api.imgbb.com/1/upload` as multipart field `image`. The link expires after 6 hours (`expiration=21600`). The app reads `data.url`.
-- **Custom host.** Used only when the ImgBB key is empty. The URL must be https. The phone `POST`s multipart field `image` (`image/jpeg`, filename `screenshot.jpg`). The response is either a bare `https://…` URL, or JSON with `data.url`, `data.display_url`, `data.image.url`, or `url`. `success: false` is a failure. A token can live in the URL query string.
+The JPEG is scaled so the long side is at most 1280 pixels, at quality 70. If that base64 is longer than 300,000 characters, the app retries at 1024 pixels and quality 60, then 800 and 55, then 640 and 50. If it still does not fit, `screenshot_base64` and `screenshot_mime` are null, `screenshot_omitted` is `too_large`, and the toast says the picture was left out. The question, link, and on-screen text are still posted.
 
-If the screenshot cannot be uploaded, the JSON is still posted with `screenshot_url` null, and the toast says so.
+Turn **Include screenshot** off and the app does not capture or send a picture. The tile and the launcher shortcut skip screen capture. On the assistant path the app drops the system screenshot instead of keeping it. The three screenshot fields are then null.
 
-ImgBB links are public to anyone who has the URL until they expire. On-screen text can include whatever the page was showing. The webhook URL, the Authorization header, and the ImgBB key stay on the device, encrypted with an Android Keystore AES-GCM key.
+Screenshots and screen text go only to your own Grok Bot webhook, never to a third party. On-screen text can include whatever the page was showing. The webhook URL and the Authorization header stay on the device, encrypted with an Android Keystore AES-GCM key.
 
 ## Example receiver
 
-`examples/receiver.py` is a stdlib webhook that prints the four fields. With `XAI_API_KEY` set it also calls the xAI chat API. Ask Button refuses non-https URLs, so put the script behind TLS (Caddy, ngrok, or cloudflared) when you point a phone at it. The Grok Bot routine is the path that needs no extra server.
+`examples/receiver.py` is a stdlib webhook that prints the payload. It prints the length of `screenshot_base64` instead of the image. With `XAI_API_KEY` set it also calls the xAI chat API. Ask Button refuses non-https URLs, so put the script behind TLS (Caddy, ngrok, or cloudflared) when you point a phone at it. The Grok Bot routine is the path that needs no extra server.
 
 ```bash
 python3 examples/receiver.py

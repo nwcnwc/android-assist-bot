@@ -19,6 +19,7 @@ import io.github.nwcnwc.askbutton.diag.Diagnostics
 import io.github.nwcnwc.askbutton.logic.Once
 import io.github.nwcnwc.askbutton.net.SendService
 import io.github.nwcnwc.askbutton.net.Sender
+import io.github.nwcnwc.askbutton.store.Settings
 import java.util.concurrent.atomic.AtomicBoolean
 
 class AskController(
@@ -114,7 +115,6 @@ class AskController(
         val screenText = source.screenText
         val pageUrl = source.pageUrl
         val urls = ArrayList(source.urls)
-        val shot = source.screenshot?.takeUnless { it.isRecycled }
         val clipboard = Sender.peekClipboard(context)
         SpeechHub.stop()
         val app = context.applicationContext
@@ -125,15 +125,26 @@ class AskController(
         // If encoding or service start stalls, leave the sheet anyway.
         main.postDelayed({ closeSheet() }, 1500)
         Thread {
-            val jpeg = try {
-                if (shot == null) null else Sender.writeJpeg(app, shot)
+            val prepared = try {
+                val include = Settings(app).includeScreenshot
+                val shot = if (include) source.screenshot?.takeUnless { it.isRecycled } else null
+                Sender.writeJpeg(app, shot)
             } catch (error: Throwable) {
                 Diagnostics.log(app, "jpeg", error)
-                null
+                Sender.Shot(null, null)
             }
             SendService.enqueue(
                 app,
-                SendService.intent(app, questionText, screenText, pageUrl, urls, clipboard, jpeg),
+                SendService.intent(
+                    app,
+                    questionText,
+                    screenText,
+                    pageUrl,
+                    urls,
+                    clipboard,
+                    prepared.file,
+                    prepared.omitted,
+                ),
             )
             main.post { closeSheet() }
         }.start()

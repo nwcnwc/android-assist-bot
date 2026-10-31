@@ -5,11 +5,11 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 object Http {
     const val TIMEOUT_MS = 20_000
+    const val USER_AGENT = "AskButton/0.1.4"
 
     data class Response(val code: Int, val body: String)
 
@@ -33,42 +33,9 @@ object Http {
         }
     }
 
-    fun postMultipart(
-        url: String,
-        fields: Map<String, String>,
-        fileField: String,
-        fileName: String,
-        fileBytes: ByteArray,
-        fileType: String,
-        timeoutMs: Int = TIMEOUT_MS,
-    ): Response {
-        val boundary = "AskButton" + UUID.randomUUID().toString().replace("-", "")
-        val connection = open(url, timeoutMs)
-        return call(connection, timeoutMs) {
-        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-        connection.outputStream.use { out ->
-            fun write(text: String) = out.write(text.toByteArray(Charsets.UTF_8))
-            for ((name, value) in fields) {
-                write("--$boundary\r\n")
-                write("Content-Disposition: form-data; name=\"${safe(name)}\"\r\n\r\n")
-                write(value)
-                write("\r\n")
-            }
-            write("--$boundary\r\n")
-            write(
-                "Content-Disposition: form-data; name=\"${safe(fileField)}\"; filename=\"${safe(fileName)}\"\r\n",
-            )
-            write("Content-Type: $fileType\r\n\r\n")
-            out.write(fileBytes)
-            write("\r\n--$boundary--\r\n")
-        }
-        read(connection)
-        }
-    }
-
     /**
      * HttpURLConnection's read timeout does not cover a write that blocks.
-     * Disconnect the socket when the deadline passes so ImgBB cannot hang the send.
+     * Disconnect the socket when the deadline passes so a stalled webhook cannot hang the send.
      */
     private fun call(connection: HttpURLConnection, timeoutMs: Int, block: () -> Response): Response {
         val timedOut = AtomicBoolean(false)
@@ -112,7 +79,7 @@ object Http {
         connection.instanceFollowRedirects = false
         connection.connectTimeout = timeoutMs
         connection.readTimeout = timeoutMs
-        connection.setRequestProperty("User-Agent", "AskButton/0.1.3")
+        connection.setRequestProperty("User-Agent", USER_AGENT)
         return connection
     }
 
@@ -142,5 +109,4 @@ object Http {
         }
     }
 
-    private fun safe(value: String): String = value.replace("\"", "").replace("\r", "").replace("\n", "")
 }

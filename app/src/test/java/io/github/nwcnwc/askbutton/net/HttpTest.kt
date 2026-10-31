@@ -1,6 +1,5 @@
 package io.github.nwcnwc.askbutton.net
 
-import io.github.nwcnwc.askbutton.logic.ImageLinks
 import io.github.nwcnwc.askbutton.logic.Payload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -20,7 +19,7 @@ class HttpTest {
             200 to "{\"ok\":true}"
         }
         try {
-            val payload = Payload.json("hello", null, "on screen", "https://i.ibb.co/a.jpg")
+            val payload = Payload.json("hello", null, "on screen", "YQ==", null)
             val response = Http.postJson(
                 "http://127.0.0.1:${server.port}/hook",
                 payload,
@@ -31,38 +30,11 @@ class HttpTest {
             assertEquals("POST", request.method)
             assertEquals("/hook", request.path)
             assertEquals("Bearer test-key", request.headers["authorization"])
+            assertEquals(Http.USER_AGENT, request.headers["user-agent"])
             assertTrue(request.headers["content-type"].orEmpty().startsWith("application/json"))
             assertEquals(payload, request.body.toString(Charsets.UTF_8))
-        } finally {
-            server.close()
-        }
-    }
-
-    @Test
-    fun multipartUploadCarriesTheJpegBytes() {
-        val seen = AtomicReference<Request>()
-        val server = accept { request ->
-            seen.set(request)
-            200 to """{"data":{"url":"https://i.ibb.co/z/shot.jpg"},"success":true}"""
-        }
-        try {
-            val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
-            val response = Http.postMultipart(
-                "http://127.0.0.1:${server.port}/upload",
-                mapOf("expiration" to "21600"),
-                "image",
-                "screenshot.jpg",
-                jpeg,
-                "image/jpeg",
-            )
-            assertEquals("https://i.ibb.co/z/shot.jpg", ImageLinks.parse(response.body))
-            val raw = seen.get().body
-            val text = raw.toString(Charsets.ISO_8859_1)
-            assertTrue(text.contains("name=\"expiration\""))
-            assertTrue(text.contains("21600"))
-            assertTrue(text.contains("filename=\"screenshot.jpg\""))
-            assertTrue(text.contains("image/jpeg"))
-            assertTrue(raw.toList().windowed(4).any { it == jpeg.toList() })
+            assertTrue(payload.contains("\"screenshot_base64\":\"YQ==\""))
+            assertTrue(payload.contains("\"screenshot_mime\":\"image/jpeg\""))
         } finally {
             server.close()
         }

@@ -15,13 +15,12 @@ class Settings(context: Context) {
         get() = store.get(KEY_AUTH).orEmpty()
         set(value) = store.put(KEY_AUTH, AuthHeader.normalize(value))
 
-    var imgbbKey: String
-        get() = store.get(KEY_IMGBB).orEmpty()
-        set(value) = store.put(KEY_IMGBB, value.trim())
-
-    var uploadUrl: String
-        get() = store.get(KEY_UPLOAD).orEmpty()
-        set(value) = store.put(KEY_UPLOAD, value.trim())
+    /** When false, no screenshot is captured or sent. Default is on. */
+    var includeScreenshot: Boolean
+        get() = plain.getBoolean(KEY_INCLUDE_SHOT, true)
+        set(value) {
+            plain.edit().putBoolean(KEY_INCLUDE_SHOT, value).apply()
+        }
 
     fun dismissedClip(stamp: String) {
         plain.edit().putString(KEY_CLIP, stamp).apply()
@@ -33,8 +32,7 @@ class Settings(context: Context) {
         const val PLAIN = "askbutton_plain"
         const val KEY_WEBHOOK = "webhook"
         const val KEY_AUTH = "auth"
-        const val KEY_IMGBB = "imgbb"
-        const val KEY_UPLOAD = "upload"
+        const val KEY_INCLUDE_SHOT = "include_screenshot"
         const val KEY_CLIP = "clip"
     }
 }

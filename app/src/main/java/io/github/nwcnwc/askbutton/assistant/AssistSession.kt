@@ -13,7 +13,8 @@ import io.github.nwcnwc.askbutton.ask.AskController
 import io.github.nwcnwc.askbutton.diag.Diagnostics
 import io.github.nwcnwc.askbutton.logic.ImageSize
 import io.github.nwcnwc.askbutton.logic.ScreenText
-import io.github.nwcnwc.askbutton.net.Sender
+import io.github.nwcnwc.askbutton.logic.Screenshot
+import io.github.nwcnwc.askbutton.store.Settings
 
 class AssistSession(context: Context) : VoiceInteractionSession(context) {
     private val parts = ArrayList<String>()
@@ -109,8 +110,8 @@ class AssistSession(context: Context) : VoiceInteractionSession(context) {
 
     override fun onHandleScreenshot(screenshot: Bitmap?) {
         guard("screenshot") {
-            val copy = copyShot(screenshot)
             val previous = this.screenshot
+            val copy = if (Settings(context).includeScreenshot) copyShot(screenshot) else null
             this.screenshot = copy
             if (previous != null && previous != copy && !previous.isRecycled) previous.recycle()
         }
@@ -123,7 +124,7 @@ class AssistSession(context: Context) : VoiceInteractionSession(context) {
      */
     private fun copyShot(bitmap: Bitmap?): Bitmap? {
         if (bitmap == null || bitmap.isRecycled) return null
-        val (width, height) = ImageSize.fit(bitmap.width, bitmap.height, Sender.MAX_EDGE)
+        val (width, height) = ImageSize.fit(bitmap.width, bitmap.height, Screenshot.STEPS.first().maxEdge)
         val scaled = if (width == bitmap.width && height == bitmap.height) {
             bitmap
         } else {
